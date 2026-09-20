@@ -43,6 +43,12 @@ document.querySelector('#app').innerHTML = `
 
       <div class="board"></div>
 
+      <div class="notification-settings">
+        <button class="notification-button" type="button">
+          🔔 Notifications
+        </button>
+      </div>
+
       <button class="new-game" hidden>Start New</button>
     </div>
   </main>
@@ -56,6 +62,7 @@ const newGameButton = document.querySelector('.new-game')
 const playerSelection = document.querySelector('.player-selection')
 const gameArea = document.querySelector('.game-area')
 const playerChoiceButtons = document.querySelectorAll('.player-choice')
+const notificationButton = document.querySelector('.notification-button')
 
 function updateScore() {
   stefaniaScoreElement.textContent = stefaniaScore
@@ -197,6 +204,122 @@ async function saveGame() {
   }
 }
 
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+
+  const rawData = window.atob(base64)
+
+  return Uint8Array.from(
+    [...rawData].map((character) => character.charCodeAt(0))
+  )
+}
+
+async function enableNotifications() {
+  if (!('serviceWorker' in navigator)) {
+    alert('Push notifications are not supported in this browser.')
+    return
+  }
+
+  if (!('PushManager' in window)) {
+    alert('Push notifications are not supported in this browser.')
+    return
+  }
+
+  if (!('Notification' in window)) {
+    alert('Notifications are not supported in this browser.')
+    return
+  }
+
+  const permission = await Notification.requestPermission()
+
+  if (permission !== 'granted') {
+    console.log('Notification permission:', permission)
+    return
+  }
+
+  const registration = await navigator.serviceWorker.ready
+
+  const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+
+  if (!vapidPublicKey) {
+    console.error('VITE_VAPID_PUBLIC_KEY is missing')
+    alert('Notification setup is incomplete.')
+    return
+  }
+
+  let subscription = await registration.pushManager.getSubscription()
+
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+    })
+  }
+
+  const subscriptionJson = subscription.toJSON()
+
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .upsert(
+      {
+        player: myPlayer,
+        endpoint: subscription.endpoint,
+        p256dh: subscriptionJson.keys.p256dh,
+        auth: subscriptionJson.keys.auth,
+        updated_at: new Date().toISOString()
+      },
+      {
+        onConflict: 'endpoint'
+      }
+    )
+
+  if (error) {
+    console.error('Error saving push subscription:', error)
+    alert('Could not save notification settings.')
+    return
+  }
+
+  notificationButton.textContent = '🔔 Notifications enabled'
+
+  console.log('Push subscription saved')
+}
+
+async function sendTurnNotification(player) {
+  const { error } = await supabase.functions.invoke(
+    'super-responder',
+    {
+      body: {
+        type: 'turn',
+        player
+      }
+    }
+  )
+
+  if (error) {
+    console.error('Error sending turn notification:', error)
+  }
+}
+
+async function sendWinNotification(winner) {
+  const { error } = await supabase.functions.invoke(
+    'super-responder',
+    {
+      body: {
+        type: 'win',
+        winner
+      }
+    }
+  )
+
+  if (error) {
+    console.error('Error sending win notification:', error)
+  }
+}
+
 async function makeMove(column) {
   if (gameOver) {
     return
@@ -205,6 +328,8 @@ async function makeMove(column) {
   if (currentPlayer !== myPlayer) {
     return
   }
+
+  const playerWhoMoved = currentPlayer
 
   for (let row = ROWS - 1; row >= 0; row--) {
     if (board[row][column] === null) {
@@ -230,20 +355,27 @@ async function makeMove(column) {
 
         updateScore()
         createConfetti()
-
         newGameButton.hidden = false
-      } else {
-        currentPlayer = currentPlayer === 1 ? 2 : 1
 
-        turnElement.textContent =
-          currentPlayer === myPlayer
-            ? 'Your turn'
-            : "Friend's turn"
+        newPiece = null
+
+        await saveGame()
+        await sendWinNotification(playerWhoMoved)
+
+        return
       }
+
+      currentPlayer = currentPlayer === 1 ? 2 : 1
+
+      turnElement.textContent =
+        currentPlayer === myPlayer
+          ? 'Your turn'
+          : "Friend's turn"
 
       newPiece = null
 
       await saveGame()
+      await sendTurnNotification(currentPlayer)
 
       return
     }
@@ -372,6 +504,8 @@ playerChoiceButtons.forEach((button) => {
     choosePlayer(Number(button.dataset.player))
   })
 })
+
+notificationButton.addEventListener('click', enableNotifications)
 
 newGameButton.addEventListener('click', startNewGame)
 
