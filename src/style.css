@@ -1,0 +1,137 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f5f5f5;
+  overflow-x: hidden;
+}
+
+.game {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 16px;
+  text-align: center;
+}
+
+h1 {
+  margin: 8px 0;
+  font-size: clamp(24px, 7vw, 32px);
+}
+
+.score {
+  display: flex;
+  justify-content: space-between;
+  font-size: clamp(15px, 4vw, 18px);
+  margin-bottom: 8px;
+}
+
+.turn {
+  font-size: clamp(16px, 4.5vw, 18px);
+  margin: 8px 0 16px;
+}
+
+.board {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: clamp(4px, 1.5vw, 8px);
+  background: #1769aa;
+  padding: clamp(6px, 2vw, 12px);
+  border-radius: 16px;
+}
+
+.cell {
+  width: 100%;
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.cell.player-one {
+  background-color: transparent;
+  background-image: url('/Stefania.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.cell.player-two {
+  background-color: transparent;
+  background-image: url('/Prince.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.cell.drop-and-roll {
+  animation: dropAndRoll 0.8s ease-out;
+}
+
+@keyframes dropAndRoll {
+  0% {
+    transform: translateY(-500px) rotate(0deg);
+  }
+
+  70% {
+    transform: translateY(15px) rotate(300deg);
+  }
+
+  100% {
+    transform: translateY(0) rotate(360deg);
+  }
+}
+
+.new-game {
+  margin-top: 20px;
+  padding: 12px 28px;
+  border: none;
+  border-radius: 12px;
+  background: #1769aa;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.new-game:hover {
+  opacity: 0.9;
+}
+
+.confetti {
+  position: fixed;
+  top: -20px;
+  width: 10px;
+  height: 16px;
+  animation: confettiFall 3s linear forwards;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.confetti:nth-child(3n) {
+  background: #f5c542;
+}
+
+.confetti:nth-child(3n + 1) {
+  background: #e74c3c;
+}
+
+.confetti:nth-child(3n + 2) {
+  background: #2ecc71;
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translateY(-20px) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
