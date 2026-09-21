@@ -798,7 +798,7 @@ newGameButton.addEventListener('click', startNewGame)
 
 if (myPlayer) {
 
-  loadGame()t
+  loadGame()
 
 }
 
