@@ -89,13 +89,19 @@ document.querySelector('#app').innerHTML = `
 
 const boardElement = document.querySelector('.board')
 const turnElement = document.querySelector('.turn')
-const stefaniaScoreElement = document.querySelector('#stefania-score')
-const princeScoreElement = document.querySelector('#prince-score')
-const newGameButton = document.querySelector('.new-game')
+const stefaniaScoreElement =
+  document.querySelector('#stefania-score')
+const princeScoreElement =
+  document.querySelector('#prince-score')
+const newGameButton =
+  document.querySelector('.new-game')
 
-const playerSelection = document.querySelector('.player-selection')
-const gameSelection = document.querySelector('.game-selection')
-const gameArea = document.querySelector('.game-area')
+const playerSelection =
+  document.querySelector('.player-selection')
+const gameSelection =
+  document.querySelector('.game-selection')
+const gameArea =
+  document.querySelector('.game-area')
 
 const playerChoiceButtons =
   document.querySelectorAll('.player-choice')
@@ -133,7 +139,8 @@ function renderBoard() {
 
       if (board[row][column] === 1) {
         cell.classList.add('player-one')
-        cell.style.backgroundImage = "url('/Stefania.png')"
+        cell.style.backgroundImage =
+          "url('/Stefania.png')"
       }
 
       if (board[row][column] === 2) {
@@ -150,7 +157,10 @@ function renderBoard() {
         cell.classList.add('drop-and-roll')
       }
 
-      cell.addEventListener('click', () => makeMove(column))
+      cell.addEventListener(
+        'click',
+        () => makeMove(column)
+      )
 
       boardElement.appendChild(cell)
     }
@@ -167,7 +177,10 @@ function checkWinner(row, column) {
     [1, -1]
   ]
 
-  for (const [rowDirection, columnDirection] of directions) {
+  for (const [
+    rowDirection,
+    columnDirection
+  ] of directions) {
     let count = 1
 
     count += countPieces(
@@ -228,7 +241,8 @@ function createConfetti() {
 
     piece.className = 'confetti'
     piece.style.left = `${Math.random() * 100}vw`
-    piece.style.animationDelay = `${Math.random() * 0.5}s`
+    piece.style.animationDelay =
+      `${Math.random() * 0.5}s`
 
     document.body.appendChild(piece)
 
@@ -256,20 +270,26 @@ async function saveGame() {
     .eq('id', selectedGameId)
 
   if (error) {
-    console.error('Error saving game:', error)
+    console.error(
+      'Error saving game:',
+      error
+    )
   }
 }
 
 function urlBase64ToUint8Array(base64String) {
   const padding =
-    '='.repeat((4 - (base64String.length % 4)) % 4)
+    '='.repeat(
+      (4 - (base64String.length % 4)) % 4
+    )
 
   const base64 =
     (base64String + padding)
       .replace(/-/g, '+')
       .replace(/_/g, '/')
 
-  const rawData = window.atob(base64)
+  const rawData =
+    window.atob(base64)
 
   return Uint8Array.from(
     [...rawData].map((character) =>
@@ -279,13 +299,21 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function enableNotifications() {
+  if (!selectedGameId) {
+    return
+  }
+
   if (!('serviceWorker' in navigator)) {
-    alert('DEBUG: serviceWorker is not supported.')
+    alert(
+      'DEBUG: serviceWorker is not supported.'
+    )
     return
   }
 
   if (!('Notification' in window)) {
-    alert('DEBUG: Notification API is not supported.')
+    alert(
+      'DEBUG: Notification API is not supported.'
+    )
     return
   }
 
@@ -329,7 +357,8 @@ async function enableNotifications() {
     await registration.update()
 
     let subscription =
-      await registration.pushManager.getSubscription()
+      await registration.pushManager
+        .getSubscription()
 
     if (!subscription) {
       subscription =
@@ -345,21 +374,27 @@ async function enableNotifications() {
     const subscriptionJson =
       subscription.toJSON()
 
-    const { error } = await supabase
-      .from('push_subscriptions')
-      .upsert(
-        {
-          player: myPlayer,
-          game_id: selectedGameId,
-          endpoint: subscription.endpoint,
-          p256dh: subscriptionJson.keys.p256dh,
-          auth: subscriptionJson.keys.auth,
-          updated_at: new Date().toISOString()
-        },
-        {
-          onConflict: 'endpoint'
-        }
-      )
+    const { data: savedSubscription, error } =
+      await supabase
+        .from('push_subscriptions')
+        .upsert(
+          {
+            player: myPlayer,
+            game_id: selectedGameId,
+            endpoint: subscription.endpoint,
+            p256dh:
+              subscriptionJson.keys.p256dh,
+            auth:
+              subscriptionJson.keys.auth,
+            updated_at:
+              new Date().toISOString()
+          },
+          {
+            onConflict: 'endpoint'
+          }
+        )
+        .select()
+        .single()
 
     if (error) {
       console.error(
@@ -374,11 +409,34 @@ async function enableNotifications() {
       return
     }
 
+    const { error: linkError } =
+      await supabase
+        .from('game_push_subscriptions')
+        .upsert({
+          game_id: selectedGameId,
+          subscription_id:
+            savedSubscription.id
+        })
+
+    if (linkError) {
+      console.error(
+        'Error linking notification to game:',
+        linkError
+      )
+
+      alert(
+        'Could not link notifications to this game.'
+      )
+
+      return
+    }
+
     notificationButton.textContent =
       '🔔 Notifications enabled'
 
     console.log(
-      'Push subscription saved'
+      'Push subscription linked to game:',
+      selectedGameId
     )
   } catch (error) {
     console.error(
@@ -393,13 +451,18 @@ async function enableNotifications() {
 }
 
 async function sendTurnNotification(player) {
+  if (!selectedGameId) {
+    return
+  }
+
   const { error } =
     await supabase.functions.invoke(
       'super-responder',
       {
         body: {
           type: 'turn',
-          player
+          player,
+          game_id: selectedGameId
         }
       }
     )
@@ -413,13 +476,18 @@ async function sendTurnNotification(player) {
 }
 
 async function sendWinNotification(winner) {
+  if (!selectedGameId) {
+    return
+  }
+
   const { error } =
     await supabase.functions.invoke(
       'super-responder',
       {
         body: {
           type: 'win',
-          winner
+          winner,
+          game_id: selectedGameId
         }
       }
     )
@@ -433,7 +501,14 @@ async function sendWinNotification(winner) {
 }
 
 async function sendBuzz() {
-  if (myPlayer !== 1 && myPlayer !== 2) {
+  if (
+    myPlayer !== 1 &&
+    myPlayer !== 2
+  ) {
+    return
+  }
+
+  if (!selectedGameId) {
     return
   }
 
@@ -441,14 +516,16 @@ async function sendBuzz() {
     myPlayer === 1 ? 2 : 1
 
   buzzButton.disabled = true
-  buzzButton.textContent = '👊 BUZZ SENT!'
+  buzzButton.textContent =
+    '👊 BUZZ SENT!'
 
   const { error } =
     await supabase.functions.invoke(
       'buzz',
       {
         body: {
-          player: targetPlayer
+          player: targetPlayer,
+          game_id: selectedGameId
         }
       }
     )
@@ -463,7 +540,9 @@ async function sendBuzz() {
     buzzButton.textContent =
       '👊 SEND A BUZZ'
 
-    alert('Could not send the buzz.')
+    alert(
+      'Could not send the buzz.'
+    )
 
     return
   }
@@ -519,11 +598,9 @@ async function makeMove(column) {
         }
 
         updateScore()
-
         createConfetti()
 
         newGameButton.hidden = false
-
         newPiece = null
 
         await saveGame()
@@ -615,18 +692,21 @@ async function loadGame() {
 
   opponentName =
     data.opponent_name ||
-    (selectedGameId === 2
-      ? 'Matteo'
-      : 'Prince')
+    (
+      selectedGameId === 2
+        ? 'Matteo'
+        : 'Prince'
+    )
 
   opponentImage =
     data.opponent_image ||
-    (selectedGameId === 2
-      ? 'Matteo.png'
-      : 'Prince.png')
+    (
+      selectedGameId === 2
+        ? 'Matteo.png'
+        : 'Prince.png'
+    )
 
   updateScore()
-
   renderBoard()
 
   if (gameOver) {
@@ -678,15 +758,19 @@ function subscribeToGame() {
 
         opponentName =
           game.opponent_name ||
-          (selectedGameId === 2
-            ? 'Matteo'
-            : 'Prince')
+          (
+            selectedGameId === 2
+              ? 'Matteo'
+              : 'Prince'
+          )
 
         opponentImage =
           game.opponent_image ||
-          (selectedGameId === 2
-            ? 'Matteo.png'
-            : 'Prince.png')
+          (
+            selectedGameId === 2
+              ? 'Matteo.png'
+              : 'Prince.png'
+          )
 
         newPiece = null
 
