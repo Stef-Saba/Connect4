@@ -130,9 +130,9 @@ function renderBoard() {
 
       const cell = document.createElement('button')
 
-      cell.className = 'cell'
-
       cell.type = 'button'
+
+      cell.className = 'cell'
 
       cell.dataset.column = column
 
@@ -362,15 +362,7 @@ async function enableNotifications() {
 
   if (!('serviceWorker' in navigator)) {
 
-    alert('Push notifications are not supported in this browser.')
-
-    return
-
-  }
-
-  if (!('PushManager' in window)) {
-
-    alert('Push notifications are not supported in this browser.')
+    alert('DEBUG: serviceWorker is not supported.')
 
     return
 
@@ -378,7 +370,7 @@ async function enableNotifications() {
 
   if (!('Notification' in window)) {
 
-    alert('Notifications are not supported in this browser.')
+    alert('DEBUG: Notification API is not supported.')
 
     return
 
@@ -394,77 +386,97 @@ async function enableNotifications() {
 
   }
 
-  const registration = await navigator.serviceWorker.ready
+  try {
 
-  const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+    const registration = await navigator.serviceWorker.ready
 
-  if (!vapidPublicKey) {
+    if (!registration.pushManager) {
 
-    console.error('VITE_VAPID_PUBLIC_KEY is missing')
+      alert('Push notifications are not available for this app.')
 
-    alert('Notification setup is incomplete.')
+      return
 
-    return
+    }
+
+    const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+
+    if (!vapidPublicKey) {
+
+      console.error('VITE_VAPID_PUBLIC_KEY is missing')
+
+      alert('Notification setup is incomplete.')
+
+      return
+
+    }
+
+    await registration.update()
+
+    let subscription = await registration.pushManager.getSubscription()
+
+    if (!subscription) {
+
+      subscription = await registration.pushManager.subscribe({
+
+        userVisibleOnly: true,
+
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+
+      })
+
+    }
+
+    const subscriptionJson = subscription.toJSON()
+
+    const { error } = await supabase
+
+      .from('push_subscriptions')
+
+      .upsert(
+
+        {
+
+          player: myPlayer,
+
+          endpoint: subscription.endpoint,
+
+          p256dh: subscriptionJson.keys.p256dh,
+
+          auth: subscriptionJson.keys.auth,
+
+          updated_at: new Date().toISOString()
+
+        },
+
+        {
+
+          onConflict: 'endpoint'
+
+        }
+
+      )
+
+    if (error) {
+
+      console.error('Error saving push subscription:', error)
+
+      alert('Could not save notification settings.')
+
+      return
+
+    }
+
+    notificationButton.textContent = '🔔 Notifications enabled'
+
+    console.log('Push subscription saved')
+
+  } catch (error) {
+
+    console.error('Notification setup failed:', error)
+
+    alert(`Notification setup failed: ${error.message}`)
 
   }
-
-  let subscription = await registration.pushManager.getSubscription()
-
-  if (!subscription) {
-
-    subscription = await registration.pushManager.subscribe({
-
-      userVisibleOnly: true,
-
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-
-    })
-
-  }
-
-  const subscriptionJson = subscription.toJSON()
-
-  const { error } = await supabase
-
-    .from('push_subscriptions')
-
-    .upsert(
-
-      {
-
-        player: myPlayer,
-
-        endpoint: subscription.endpoint,
-
-        p256dh: subscriptionJson.keys.p256dh,
-
-        auth: subscriptionJson.keys.auth,
-
-        updated_at: new Date().toISOString()
-
-      },
-
-      {
-
-        onConflict: 'endpoint'
-
-      }
-
-    )
-
-  if (error) {
-
-    console.error('Error saving push subscription:', error)
-
-    alert('Could not save notification settings.')
-
-    return
-
-  }
-
-  notificationButton.textContent = '🔔 Notifications enabled'
-
-  console.log('Push subscription saved')
 
 }
 
@@ -788,15 +800,9 @@ function subscribeToGame() {
 
 function choosePlayer(player) {
 
-  if (player !== 1 && player !== 2) {
-
-    return
-
-  }
-
   myPlayer = player
 
-  localStorage.setItem('connect4-player', String(player))
+  localStorage.setItem('connect4-player', player)
 
   playerSelection.hidden = true
 
