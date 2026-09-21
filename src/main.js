@@ -22,6 +22,14 @@ let princeScore = 0
 
 let myPlayer = Number(localStorage.getItem('connect4-player'))
 
+if (myPlayer !== 1 && myPlayer !== 2) {
+
+  myPlayer = null
+
+  localStorage.removeItem('connect4-player')
+
+}
+
 document.querySelector('#app').innerHTML = `
 
 <main class="game">
@@ -70,6 +78,12 @@ document.querySelector('#app').innerHTML = `
 
     </div>
 
+    <button class="change-player" type="button">
+
+      Change player
+
+    </button>
+
     <button class="new-game" hidden>Start New</button>
 
   </div>
@@ -96,6 +110,8 @@ const playerChoiceButtons = document.querySelectorAll('.player-choice')
 
 const notificationButton = document.querySelector('.notification-button')
 
+const changePlayerButton = document.querySelector('.change-player')
+
 function updateScore() {
 
   stefaniaScoreElement.textContent = stefaniaScore
@@ -115,6 +131,8 @@ function renderBoard() {
       const cell = document.createElement('button')
 
       cell.className = 'cell'
+
+      cell.type = 'button'
 
       cell.dataset.column = column
 
@@ -770,15 +788,35 @@ function subscribeToGame() {
 
 function choosePlayer(player) {
 
+  if (player !== 1 && player !== 2) {
+
+    return
+
+  }
+
   myPlayer = player
 
-  localStorage.setItem('connect4-player', player)
+  localStorage.setItem('connect4-player', String(player))
 
   playerSelection.hidden = true
 
   gameArea.hidden = false
 
   loadGame()
+
+}
+
+function changePlayer() {
+
+  localStorage.removeItem('connect4-player')
+
+  myPlayer = null
+
+  playerSelection.hidden = false
+
+  gameArea.hidden = true
+
+  notificationButton.textContent = '🔔 Notifications'
 
 }
 
@@ -793,6 +831,8 @@ playerChoiceButtons.forEach((button) => {
 })
 
 notificationButton.addEventListener('click', enableNotifications)
+
+changePlayerButton.addEventListener('click', changePlayer)
 
 newGameButton.addEventListener('click', startNewGame)
 
