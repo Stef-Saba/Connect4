@@ -14,6 +14,11 @@ let newPiece = null
 let gameOver = false
 let stefaniaScore = 0
 let princeScore = 0
+
+let selectedGameId = Number(localStorage.getItem('connect4-game')) || null
+let opponentName = null
+let opponentImage = null
+
 let myPlayer = Number(localStorage.getItem('connect4-player'))
 
 if (myPlayer !== 1 && myPlayer !== 2) {
@@ -37,7 +42,19 @@ document.querySelector('#app').innerHTML = `
     </button>
   </div>
 
-  <div class="game-area" ${myPlayer ? '' : 'hidden'}>
+  <div class="game-selection" ${myPlayer ? '' : 'hidden'}>
+    <h2>Who do you want to play?</h2>
+
+    <button class="game-choice" data-game="1">
+      👑 Prince
+    </button>
+
+    <button class="game-choice" data-game="2">
+      👨 Matteo
+    </button>
+  </div>
+
+  <div class="game-area" hidden>
     <div class="score">
       <div>Stefania: <strong id="stefania-score">0</strong></div>
       <div>Prince: <strong id="prince-score">0</strong></div>
@@ -51,14 +68,18 @@ document.querySelector('#app').innerHTML = `
       <button class="notification-button" type="button">
         🔔 Notifications
       </button>
-    </div>
 
-    <button class="notification-button" type="button" id="buzz-button">
-      👊 SEND A BUZZ
-    </button>
+      <button class="notification-button" type="button" id="buzz-button">
+        👊 SEND A BUZZ
+      </button>
+    </div>
 
     <button class="change-player" type="button">
       Change player
+    </button>
+
+    <button class="change-game" type="button">
+      Change opponent
     </button>
 
     <button class="new-game" hidden>Start New</button>
@@ -71,12 +92,28 @@ const turnElement = document.querySelector('.turn')
 const stefaniaScoreElement = document.querySelector('#stefania-score')
 const princeScoreElement = document.querySelector('#prince-score')
 const newGameButton = document.querySelector('.new-game')
+
 const playerSelection = document.querySelector('.player-selection')
+const gameSelection = document.querySelector('.game-selection')
 const gameArea = document.querySelector('.game-area')
-const playerChoiceButtons = document.querySelectorAll('.player-choice')
-const notificationButton = document.querySelector('.notification-button')
-const buzzButton = document.querySelector('#buzz-button')
-const changePlayerButton = document.querySelector('.change-player')
+
+const playerChoiceButtons =
+  document.querySelectorAll('.player-choice')
+
+const gameChoiceButtons =
+  document.querySelectorAll('.game-choice')
+
+const notificationButton =
+  document.querySelector('.notification-button')
+
+const buzzButton =
+  document.querySelector('#buzz-button')
+
+const changePlayerButton =
+  document.querySelector('.change-player')
+
+const changeGameButton =
+  document.querySelector('.change-game')
 
 function updateScore() {
   stefaniaScoreElement.textContent = stefaniaScore
@@ -101,7 +138,8 @@ function renderBoard() {
 
       if (board[row][column] === 2) {
         cell.classList.add('player-two')
-        cell.style.backgroundImage = "url('/Prince.png')"
+        cell.style.backgroundImage =
+          `url('/${opponentImage || 'Prince.png'}')`
       }
 
       if (
@@ -113,6 +151,7 @@ function renderBoard() {
       }
 
       cell.addEventListener('click', () => makeMove(column))
+
       boardElement.appendChild(cell)
     }
   }
@@ -163,6 +202,7 @@ function countPieces(
   player
 ) {
   let count = 0
+
   let nextRow = row + rowDirection
   let nextColumn = column + columnDirection
 
@@ -174,6 +214,7 @@ function countPieces(
     board[nextRow][nextColumn] === player
   ) {
     count++
+
     nextRow += rowDirection
     nextColumn += columnDirection
   }
@@ -198,6 +239,10 @@ function createConfetti() {
 }
 
 async function saveGame() {
+  if (!selectedGameId) {
+    return
+  }
+
   const { error } = await supabase
     .from('games')
     .update({
@@ -208,7 +253,7 @@ async function saveGame() {
       game_over: gameOver,
       updated_at: new Date().toISOString()
     })
-    .eq('id', 1)
+    .eq('id', selectedGameId)
 
   if (error) {
     console.error('Error saving game:', error)
@@ -216,16 +261,20 @@ async function saveGame() {
 }
 
 function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const padding =
+    '='.repeat((4 - (base64String.length % 4)) % 4)
 
-  const base64 = (base64String + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/')
+  const base64 =
+    (base64String + padding)
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
 
   const rawData = window.atob(base64)
 
   return Uint8Array.from(
-    [...rawData].map((character) => character.charCodeAt(0))
+    [...rawData].map((character) =>
+      character.charCodeAt(0)
+    )
   )
 }
 
@@ -240,47 +289,68 @@ async function enableNotifications() {
     return
   }
 
-  const permission = await Notification.requestPermission()
+  const permission =
+    await Notification.requestPermission()
 
   if (permission !== 'granted') {
-    console.log('Notification permission:', permission)
+    console.log(
+      'Notification permission:',
+      permission
+    )
     return
   }
 
   try {
-    const registration = await navigator.serviceWorker.ready
+    const registration =
+      await navigator.serviceWorker.ready
 
     if (!registration.pushManager) {
-      alert('Push notifications are not available for this app.')
+      alert(
+        'Push notifications are not available for this app.'
+      )
       return
     }
 
-    const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+    const vapidPublicKey =
+      import.meta.env.VITE_VAPID_PUBLIC_KEY
 
     if (!vapidPublicKey) {
-      console.error('VITE_VAPID_PUBLIC_KEY is missing')
-      alert('Notification setup is incomplete.')
+      console.error(
+        'VITE_VAPID_PUBLIC_KEY is missing'
+      )
+
+      alert(
+        'Notification setup is incomplete.'
+      )
+
       return
     }
 
     await registration.update()
 
-    let subscription = await registration.pushManager.getSubscription()
+    let subscription =
+      await registration.pushManager.getSubscription()
 
     if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-      })
+      subscription =
+        await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey:
+            urlBase64ToUint8Array(
+              vapidPublicKey
+            )
+        })
     }
 
-    const subscriptionJson = subscription.toJSON()
+    const subscriptionJson =
+      subscription.toJSON()
 
     const { error } = await supabase
       .from('push_subscriptions')
       .upsert(
         {
           player: myPlayer,
+          game_id: selectedGameId,
           endpoint: subscription.endpoint,
           p256dh: subscriptionJson.keys.p256dh,
           auth: subscriptionJson.keys.auth,
@@ -292,48 +362,73 @@ async function enableNotifications() {
       )
 
     if (error) {
-      console.error('Error saving push subscription:', error)
-      alert('Could not save notification settings.')
+      console.error(
+        'Error saving push subscription:',
+        error
+      )
+
+      alert(
+        'Could not save notification settings.'
+      )
+
       return
     }
 
-    notificationButton.textContent = '🔔 Notifications enabled'
-    console.log('Push subscription saved')
+    notificationButton.textContent =
+      '🔔 Notifications enabled'
+
+    console.log(
+      'Push subscription saved'
+    )
   } catch (error) {
-    console.error('Notification setup failed:', error)
-    alert(`Notification setup failed: ${error.message}`)
+    console.error(
+      'Notification setup failed:',
+      error
+    )
+
+    alert(
+      `Notification setup failed: ${error.message}`
+    )
   }
 }
 
 async function sendTurnNotification(player) {
-  const { error } = await supabase.functions.invoke(
-    'super-responder',
-    {
-      body: {
-        type: 'turn',
-        player
+  const { error } =
+    await supabase.functions.invoke(
+      'super-responder',
+      {
+        body: {
+          type: 'turn',
+          player
+        }
       }
-    }
-  )
+    )
 
   if (error) {
-    console.error('Error sending turn notification:', error)
+    console.error(
+      'Error sending turn notification:',
+      error
+    )
   }
 }
 
 async function sendWinNotification(winner) {
-  const { error } = await supabase.functions.invoke(
-    'super-responder',
-    {
-      body: {
-        type: 'win',
-        winner
+  const { error } =
+    await supabase.functions.invoke(
+      'super-responder',
+      {
+        body: {
+          type: 'win',
+          winner
+        }
       }
-    }
-  )
+    )
 
   if (error) {
-    console.error('Error sending win notification:', error)
+    console.error(
+      'Error sending win notification:',
+      error
+    )
   }
 }
 
@@ -342,32 +437,41 @@ async function sendBuzz() {
     return
   }
 
-  const targetPlayer = myPlayer === 1 ? 2 : 1
+  const targetPlayer =
+    myPlayer === 1 ? 2 : 1
 
   buzzButton.disabled = true
   buzzButton.textContent = '👊 BUZZ SENT!'
 
-  const { error } = await supabase.functions.invoke(
-    'buzz',
-    {
-      body: {
-        player: targetPlayer
+  const { error } =
+    await supabase.functions.invoke(
+      'buzz',
+      {
+        body: {
+          player: targetPlayer
+        }
       }
-    }
-  )
+    )
 
   if (error) {
-    console.error('Error sending buzz:', error)
+    console.error(
+      'Error sending buzz:',
+      error
+    )
 
     buzzButton.disabled = false
-    buzzButton.textContent = '👊 SEND A BUZZ'
+    buzzButton.textContent =
+      '👊 SEND A BUZZ'
+
     alert('Could not send the buzz.')
+
     return
   }
 
   setTimeout(() => {
     buzzButton.disabled = false
-    buzzButton.textContent = '👊 SEND A BUZZ'
+    buzzButton.textContent =
+      '👊 SEND A BUZZ'
   }, 1500)
 }
 
@@ -380,11 +484,17 @@ async function makeMove(column) {
     return
   }
 
-  const playerWhoMoved = currentPlayer
+  const playerWhoMoved =
+    currentPlayer
 
-  for (let row = ROWS - 1; row >= 0; row--) {
+  for (
+    let row = ROWS - 1;
+    row >= 0;
+    row--
+  ) {
     if (board[row][column] === null) {
-      board[row][column] = currentPlayer
+      board[row][column] =
+        currentPlayer
 
       newPiece = {
         row,
@@ -398,35 +508,50 @@ async function makeMove(column) {
 
         if (currentPlayer === 1) {
           stefaniaScore++
-          turnElement.textContent = '🎉 Stefania wins!'
+
+          turnElement.textContent =
+            '🎉 Stefania wins!'
         } else {
           princeScore++
-          turnElement.textContent = '🎉 Prince wins!'
+
+          turnElement.textContent =
+            `🎉 ${opponentName} wins!`
         }
 
         updateScore()
+
         createConfetti()
 
         newGameButton.hidden = false
+
         newPiece = null
 
         await saveGame()
-        await sendWinNotification(playerWhoMoved)
+
+        await sendWinNotification(
+          playerWhoMoved
+        )
 
         return
       }
 
-      currentPlayer = currentPlayer === 1 ? 2 : 1
+      currentPlayer =
+        currentPlayer === 1
+          ? 2
+          : 1
 
       turnElement.textContent =
         currentPlayer === 1
           ? "Stefania's turn"
-          : "Prince's turn"
+          : `${opponentName}'s turn`
 
       newPiece = null
 
       await saveGame()
-      await sendTurnNotification(currentPlayer)
+
+      await sendTurnNotification(
+        currentPlayer
+      )
 
       return
     }
@@ -434,18 +559,18 @@ async function makeMove(column) {
 }
 
 async function startNewGame() {
-  board = Array.from({ length: ROWS }, () =>
-    Array(COLUMNS).fill(null)
-  )
+  board =
+    Array.from(
+      { length: ROWS },
+      () => Array(COLUMNS).fill(null)
+    )
 
   currentPlayer = 1
   gameOver = false
   newPiece = null
 
   turnElement.textContent =
-    currentPlayer === 1
-      ? "Stefania's turn"
-      : "Prince's turn"
+    "Stefania's turn"
 
   newGameButton.hidden = true
 
@@ -455,38 +580,67 @@ async function startNewGame() {
 }
 
 async function loadGame() {
-  const { data, error } = await supabase
-    .from('games')
-    .select('*')
-    .eq('id', 1)
-    .single()
+  if (!selectedGameId) {
+    return
+  }
+
+  const { data, error } =
+    await supabase
+      .from('games')
+      .select('*')
+      .eq('id', selectedGameId)
+      .single()
 
   if (error) {
-    console.error('Error loading game:', error)
+    console.error(
+      'Error loading game:',
+      error
+    )
+
     return
   }
 
   board = data.board
-  currentPlayer = data.current_player
-  stefaniaScore = data.stefania_score
-  princeScore = data.prince_score
-  gameOver = data.game_over
+  currentPlayer =
+    data.current_player
+
+  stefaniaScore =
+    data.stefania_score
+
+  princeScore =
+    data.prince_score
+
+  gameOver =
+    data.game_over
+
+  opponentName =
+    data.opponent_name ||
+    (selectedGameId === 2
+      ? 'Matteo'
+      : 'Prince')
+
+  opponentImage =
+    data.opponent_image ||
+    (selectedGameId === 2
+      ? 'Matteo.png'
+      : 'Prince.png')
 
   updateScore()
+
   renderBoard()
 
   if (gameOver) {
     turnElement.textContent =
       currentPlayer === 1
         ? '🎉 Stefania wins!'
-        : '🎉 Prince wins!'
+        : `🎉 ${opponentName} wins!`
 
     newGameButton.hidden = false
   } else {
     turnElement.textContent =
       currentPlayer === 1
         ? "Stefania's turn"
-        : "Prince's turn"
+        : `${opponentName}'s turn`
 
     newGameButton.hidden = true
   }
@@ -500,17 +654,40 @@ function subscribeToGame() {
       {
         event: 'UPDATE',
         schema: 'public',
-        table: 'games',
-        filter: 'id=eq.1'
+        table: 'games'
       },
       (payload) => {
         const game = payload.new
 
+        if (game.id !== selectedGameId) {
+          return
+        }
+
         board = game.board
-        currentPlayer = game.current_player
-        stefaniaScore = game.stefania_score
-        princeScore = game.prince_score
-        gameOver = game.game_over
+        currentPlayer =
+          game.current_player
+
+        stefaniaScore =
+          game.stefania_score
+
+        princeScore =
+          game.prince_score
+
+        gameOver =
+          game.game_over
+
+        opponentName =
+          game.opponent_name ||
+          (selectedGameId === 2
+            ? 'Matteo'
+            : 'Prince')
+
+        opponentImage =
+          game.opponent_image ||
+          (selectedGameId === 2
+            ? 'Matteo.png'
+            : 'Prince.png')
+
         newPiece = null
 
         updateScore()
@@ -520,61 +697,152 @@ function subscribeToGame() {
           turnElement.textContent =
             currentPlayer === 1
               ? '🎉 Stefania wins!'
-              : '🎉 Prince wins!'
+              : `🎉 ${opponentName} wins!`
 
           newGameButton.hidden = false
         } else {
           turnElement.textContent =
             currentPlayer === 1
               ? "Stefania's turn"
-              : "Prince's turn"
+              : `${opponentName}'s turn`
 
           newGameButton.hidden = true
         }
       }
     )
     .subscribe((status) => {
-      console.log('Realtime status:', status)
+      console.log(
+        'Realtime status:',
+        status
+      )
     })
 }
 
 function choosePlayer(player) {
   myPlayer = player
-  localStorage.setItem('connect4-player', player)
+
+  localStorage.setItem(
+    'connect4-player',
+    player
+  )
 
   playerSelection.hidden = true
+  gameSelection.hidden = false
+  gameArea.hidden = true
+}
+
+function chooseGame(gameId) {
+  selectedGameId = gameId
+
+  localStorage.setItem(
+    'connect4-game',
+    gameId
+  )
+
+  gameSelection.hidden = true
   gameArea.hidden = false
+
+  notificationButton.textContent =
+    '🔔 Notifications'
 
   loadGame()
 }
 
 function changePlayer() {
-  localStorage.removeItem('connect4-player')
+  localStorage.removeItem(
+    'connect4-player'
+  )
+
+  localStorage.removeItem(
+    'connect4-game'
+  )
 
   myPlayer = null
+  selectedGameId = null
 
   playerSelection.hidden = false
+  gameSelection.hidden = true
   gameArea.hidden = true
 
-  notificationButton.textContent = '🔔 Notifications'
+  notificationButton.textContent =
+    '🔔 Notifications'
 }
 
-playerChoiceButtons.forEach((button) => {
-  button.addEventListener('click', () => {
-    choosePlayer(Number(button.dataset.player))
-  })
-})
+function changeGame() {
+  localStorage.removeItem(
+    'connect4-game'
+  )
 
-notificationButton.addEventListener('click', enableNotifications)
+  selectedGameId = null
 
-buzzButton.addEventListener('click', sendBuzz)
+  gameSelection.hidden = false
+  gameArea.hidden = true
 
-changePlayerButton.addEventListener('click', changePlayer)
+  notificationButton.textContent =
+    '🔔 Notifications'
+}
 
-newGameButton.addEventListener('click', startNewGame)
+playerChoiceButtons.forEach(
+  (button) => {
+    button.addEventListener(
+      'click',
+      () => {
+        choosePlayer(
+          Number(button.dataset.player)
+        )
+      }
+    )
+  }
+)
 
-if (myPlayer) {
+gameChoiceButtons.forEach(
+  (button) => {
+    button.addEventListener(
+      'click',
+      () => {
+        chooseGame(
+          Number(button.dataset.game)
+        )
+      }
+    )
+  }
+)
+
+notificationButton.addEventListener(
+  'click',
+  enableNotifications
+)
+
+buzzButton.addEventListener(
+  'click',
+  sendBuzz
+)
+
+changePlayerButton.addEventListener(
+  'click',
+  changePlayer
+)
+
+changeGameButton.addEventListener(
+  'click',
+  changeGame
+)
+
+newGameButton.addEventListener(
+  'click',
+  startNewGame
+)
+
+if (myPlayer && selectedGameId) {
+  playerSelection.hidden = true
+  gameSelection.hidden = true
+  gameArea.hidden = false
+
   loadGame()
+} else if (myPlayer) {
+  playerSelection.hidden = true
+  gameSelection.hidden = false
+  gameArea.hidden = true
 }
 
 subscribeToGame()
