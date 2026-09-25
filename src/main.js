@@ -27,6 +27,9 @@ let myPlayer =
 let myPerson =
   localStorage.getItem('connect4-person')
 
+let realtimeChannel = null
+let realtimeReconnectTimer = null
+
 if (myPlayer !== 1 && myPlayer !== 2) {
   myPlayer = null
   localStorage.removeItem('connect4-player')
@@ -42,6 +45,7 @@ if (
 }
 
 document.querySelector('#app').innerHTML = `
+
 <main class="game">
 
   <h1>Connect Four</h1>
@@ -222,7 +226,8 @@ function renderBoard() {
 
   for (let row = 0; row < ROWS; row++) {
     for (let column = 0; column < COLUMNS; column++) {
-      const cell = document.createElement('button')
+      const cell =
+        document.createElement('button')
 
       cell.type = 'button'
       cell.className = 'cell'
@@ -230,14 +235,12 @@ function renderBoard() {
 
       if (board[row][column] === 1) {
         cell.classList.add('player-one')
-
         cell.style.backgroundImage =
           "url('/Stefania.png')"
       }
 
       if (board[row][column] === 2) {
         cell.classList.add('player-two')
-
         cell.style.backgroundImage =
           `url('/${opponentImage || 'Prince.png'}')`
       }
@@ -654,7 +657,6 @@ async function sendBuzz() {
 
   setTimeout(() => {
     buzzButton.disabled = false
-
     buzzButton.textContent =
       '👊 SEND A BUZZ'
   }, 1500)
@@ -693,7 +695,6 @@ async function makeMove(column) {
 
         if (currentPlayer === 1) {
           stefaniaScore++
-
         } else {
           princeScore++
         }
@@ -706,6 +707,7 @@ async function makeMove(column) {
         createConfetti()
 
         newGameButton.hidden = false
+
         newPiece = null
 
         await saveGame()
@@ -818,81 +820,127 @@ async function loadGame() {
     newGameButton.hidden = false
   } else {
     updateTurnText()
-
     newGameButton.hidden = true
   }
 }
 
-function subscribeToGame() {
-  supabase
-    .channel('connect4-game')
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'games'
-      },
-      (payload) => {
-        const game = payload.new
+function applyRealtimeGame(game) {
+  if (!game) {
+    return
+  }
 
-        if (game.id !== selectedGameId) {
-          return
-        }
+  if (game.id !== selectedGameId) {
+    return
+  }
 
-        board = game.board
+  board = game.board
 
-        currentPlayer =
-          game.current_player
+  currentPlayer =
+    game.current_player
 
-        stefaniaScore =
-          game.stefania_score
+  stefaniaScore =
+    game.stefania_score
 
-        princeScore =
-          game.prince_score
+  princeScore =
+    game.prince_score
 
-        gameOver =
-          game.game_over
+  gameOver =
+    game.game_over
 
-        opponentName =
-          game.opponent_name ||
-          (
-            selectedGameId === 2
-              ? 'Olga'
-              : 'Prince'
-          )
-
-        opponentImage =
-          game.opponent_image ||
-          (
-            selectedGameId === 2
-              ? 'Olga.png'
-              : 'Prince.png'
-          )
-
-        newPiece = null
-
-        updateScore()
-        renderBoard()
-
-        if (gameOver) {
-          turnElement.textContent =
-            `🎉 ${getPlayerName(currentPlayer)} wins!`
-
-          newGameButton.hidden = false
-        } else {
-          updateTurnText()
-
-          newGameButton.hidden = true
-        }
-      }
+  opponentName =
+    game.opponent_name ||
+    (
+      selectedGameId === 2
+        ? 'Olga'
+        : 'Prince'
     )
-    .subscribe((status) => {
-      console.log(
-        'Realtime status:',
-        status
+
+  opponentImage =
+    game.opponent_image ||
+    (
+      selectedGameId === 2
+        ? 'Olga.png'
+        : 'Prince.png'
+    )
+
+  newPiece = null
+
+  updateScore()
+  renderBoard()
+
+  if (gameOver) {
+    turnElement.textContent =
+      `🎉 ${getPlayerName(currentPlayer)} wins!`
+
+    newGameButton.hidden = false
+  } else {
+    updateTurnText()
+    newGameButton.hidden = true
+  }
+}
+
+function scheduleRealtimeReconnect() {
+  if (realtimeReconnectTimer) {
+    return
+  }
+
+  realtimeReconnectTimer =
+    setTimeout(() => {
+      realtimeReconnectTimer = null
+
+      if (selectedGameId) {
+        subscribeToGame()
+      }
+    }, 1500)
+}
+
+function subscribeToGame() {
+  if (realtimeReconnectTimer) {
+    clearTimeout(realtimeReconnectTimer)
+    realtimeReconnectTimer = null
+  }
+
+  if (realtimeChannel) {
+    supabase.removeChannel(
+      realtimeChannel
+    )
+
+    realtimeChannel = null
+  }
+
+  const channelName =
+    `connect4-game-${Date.now()}`
+
+  realtimeChannel =
+    supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'games'
+        },
+        (payload) => {
+          applyRealtimeGame(
+            payload.new
+          )
+        }
       )
-    })
+      .subscribe((status) => {
+        console.log(
+          'Realtime status:',
+          status
+        )
+
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT' ||
+          status === 'CLOSED'
+        ) {
+          scheduleRealtimeReconnect()
+        }
+      })
 }
 
 function renderGameChoices() {
@@ -997,6 +1045,7 @@ function chooseGame(gameId) {
   notificationButton.textContent =
     '🔔 Notifications'
 
+  subscribeToGame()
   loadGame()
 }
 
@@ -1023,6 +1072,14 @@ function changePlayer() {
 
   notificationButton.textContent =
     '🔔 Notifications'
+
+  if (realtimeChannel) {
+    supabase.removeChannel(
+      realtimeChannel
+    )
+
+    realtimeChannel = null
+  }
 }
 
 function changeGame() {
@@ -1037,6 +1094,14 @@ function changeGame() {
 
   notificationButton.textContent =
     '🔔 Notifications'
+
+  if (realtimeChannel) {
+    supabase.removeChannel(
+      realtimeChannel
+    )
+
+    realtimeChannel = null
+  }
 
   renderGameChoices()
 }
@@ -1077,6 +1142,31 @@ changeGameButton.addEventListener(
 newGameButton.addEventListener(
   'click',
   startNewGame
+)
+
+document.addEventListener(
+  'visibilitychange',
+  () => {
+    if (
+      document.visibilityState ===
+      'visible'
+    ) {
+      if (selectedGameId) {
+        subscribeToGame()
+        loadGame()
+      }
+    }
+  }
+)
+
+window.addEventListener(
+  'online',
+  () => {
+    if (selectedGameId) {
+      subscribeToGame()
+      loadGame()
+    }
+  }
 )
 
 if (myPerson && selectedGameId) {
