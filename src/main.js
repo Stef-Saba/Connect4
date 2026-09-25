@@ -77,13 +77,13 @@ document.querySelector('#app').innerHTML = `
     <div class="score">
 
       <div>
-        Stefania:
-        <strong id="stefania-score">0</strong>
+        <span id="my-score-name">Stefania</span>:
+        <strong id="my-score">0</strong>
       </div>
 
       <div>
         <span id="opponent-score-name">Prince</span>:
-        <strong id="prince-score">0</strong>
+        <strong id="opponent-score">0</strong>
       </div>
 
     </div>
@@ -131,14 +131,17 @@ const boardElement =
 const turnElement =
   document.querySelector('.turn')
 
-const stefaniaScoreElement =
-  document.querySelector('#stefania-score')
+const myScoreNameElement =
+  document.querySelector('#my-score-name')
 
-const princeScoreElement =
-  document.querySelector('#prince-score')
+const myScoreElement =
+  document.querySelector('#my-score')
 
 const opponentScoreNameElement =
   document.querySelector('#opponent-score-name')
+
+const opponentScoreElement =
+  document.querySelector('#opponent-score')
 
 const newGameButton =
   document.querySelector('.new-game')
@@ -170,15 +173,48 @@ const changePlayerButton =
 const changeGameButton =
   document.querySelector('.change-game')
 
-function updateScore() {
-  stefaniaScoreElement.textContent =
-    stefaniaScore
+function getPlayerName(player) {
+  if (player === 1) {
+    return 'Stefania'
+  }
 
-  princeScoreElement.textContent =
-    princeScore
+  return opponentName || 'Prince'
+}
+
+function getPlayerScore(player) {
+  if (player === 1) {
+    return stefaniaScore
+  }
+
+  return princeScore
+}
+
+function updateScore() {
+  const myScore =
+    getPlayerScore(myPlayer)
+
+  const opponentPlayer =
+    myPlayer === 1 ? 2 : 1
+
+  const opponentScore =
+    getPlayerScore(opponentPlayer)
+
+  myScoreNameElement.textContent =
+    getPlayerName(myPlayer)
+
+  myScoreElement.textContent =
+    myScore
 
   opponentScoreNameElement.textContent =
-    opponentName || 'Prince'
+    getPlayerName(opponentPlayer)
+
+  opponentScoreElement.textContent =
+    opponentScore
+}
+
+function updateTurnText() {
+  turnElement.textContent =
+    `${getPlayerName(currentPlayer)}'s turn`
 }
 
 function renderBoard() {
@@ -658,16 +694,15 @@ async function makeMove(column) {
         if (currentPlayer === 1) {
           stefaniaScore++
 
-          turnElement.textContent =
-            '🎉 Stefania wins!'
         } else {
           princeScore++
-
-          turnElement.textContent =
-            `🎉 ${opponentName} wins!`
         }
 
         updateScore()
+
+        turnElement.textContent =
+          `🎉 ${getPlayerName(playerWhoMoved)} wins!`
+
         createConfetti()
 
         newGameButton.hidden = false
@@ -687,10 +722,7 @@ async function makeMove(column) {
           ? 2
           : 1
 
-      turnElement.textContent =
-        currentPlayer === 1
-          ? "Stefania's turn"
-          : `${opponentName}'s turn`
+      updateTurnText()
 
       newPiece = null
 
@@ -716,8 +748,7 @@ async function startNewGame() {
   gameOver = false
   newPiece = null
 
-  turnElement.textContent =
-    "Stefania's turn"
+  updateTurnText()
 
   newGameButton.hidden = true
 
@@ -782,16 +813,11 @@ async function loadGame() {
 
   if (gameOver) {
     turnElement.textContent =
-      currentPlayer === 1
-        ? '🎉 Stefania wins!'
-        : `🎉 ${opponentName} wins!`
+      `🎉 ${getPlayerName(currentPlayer)} wins!`
 
     newGameButton.hidden = false
   } else {
-    turnElement.textContent =
-      currentPlayer === 1
-        ? "Stefania's turn"
-        : `${opponentName}'s turn`
+    updateTurnText()
 
     newGameButton.hidden = true
   }
@@ -851,16 +877,11 @@ function subscribeToGame() {
 
         if (gameOver) {
           turnElement.textContent =
-            currentPlayer === 1
-              ? '🎉 Stefania wins!'
-              : `🎉 ${opponentName} wins!`
+            `🎉 ${getPlayerName(currentPlayer)} wins!`
 
           newGameButton.hidden = false
         } else {
-          turnElement.textContent =
-            currentPlayer === 1
-              ? "Stefania's turn"
-              : `${opponentName}'s turn`
+          updateTurnText()
 
           newGameButton.hidden = true
         }
