@@ -15,11 +15,15 @@ let gameOver = false
 let stefaniaScore = 0
 let princeScore = 0
 
-let selectedGameId = Number(localStorage.getItem('connect4-game')) || null
+let selectedGameId =
+  Number(localStorage.getItem('connect4-game')) || null
+
 let opponentName = null
 let opponentImage = null
 
-let myPlayer = Number(localStorage.getItem('connect4-player'))
+let myPlayer = Number(
+  localStorage.getItem('connect4-player')
+)
 
 if (myPlayer !== 1 && myPlayer !== 2) {
   myPlayer = null
@@ -28,9 +32,11 @@ if (myPlayer !== 1 && myPlayer !== 2) {
 
 document.querySelector('#app').innerHTML = `
 <main class="game">
+
   <h1>Connect Four</h1>
 
   <div class="player-selection" ${myPlayer ? 'hidden' : ''}>
+
     <h2>Who are you?</h2>
 
     <button class="player-choice" data-player="1">
@@ -40,9 +46,11 @@ document.querySelector('#app').innerHTML = `
     <button class="player-choice" data-player="2">
       👑 Prince
     </button>
+
   </div>
 
   <div class="game-selection" ${myPlayer ? '' : 'hidden'}>
+
     <h2>Who do you want to play?</h2>
 
     <button class="game-choice" data-game="1">
@@ -50,14 +58,25 @@ document.querySelector('#app').innerHTML = `
     </button>
 
     <button class="game-choice" data-game="2">
-      👨 Matteo
+      👩 Olga
     </button>
+
   </div>
 
   <div class="game-area" hidden>
+
     <div class="score">
-      <div>Stefania: <strong id="stefania-score">0</strong></div>
-      <div>Prince: <strong id="prince-score">0</strong></div>
+
+      <div>
+        Stefania:
+        <strong id="stefania-score">0</strong>
+      </div>
+
+      <div>
+        Prince:
+        <strong id="prince-score">0</strong>
+      </div>
+
     </div>
 
     <p class="turn">Stefania's turn</p>
@@ -65,13 +84,19 @@ document.querySelector('#app').innerHTML = `
     <div class="board"></div>
 
     <div class="notification-settings">
+
       <button class="notification-button" type="button">
         🔔 Notifications
       </button>
 
-      <button class="notification-button" type="button" id="buzz-button">
+      <button
+        class="notification-button"
+        type="button"
+        id="buzz-button"
+      >
         👊 SEND A BUZZ
       </button>
+
     </div>
 
     <button class="change-player" type="button">
@@ -82,24 +107,36 @@ document.querySelector('#app').innerHTML = `
       Change opponent
     </button>
 
-    <button class="new-game" hidden>Start New</button>
+    <button class="new-game" hidden>
+      Start New
+    </button>
+
   </div>
+
 </main>
 `
 
-const boardElement = document.querySelector('.board')
-const turnElement = document.querySelector('.turn')
+const boardElement =
+  document.querySelector('.board')
+
+const turnElement =
+  document.querySelector('.turn')
+
 const stefaniaScoreElement =
   document.querySelector('#stefania-score')
+
 const princeScoreElement =
   document.querySelector('#prince-score')
+
 const newGameButton =
   document.querySelector('.new-game')
 
 const playerSelection =
   document.querySelector('.player-selection')
+
 const gameSelection =
   document.querySelector('.game-selection')
+
 const gameArea =
   document.querySelector('.game-area')
 
@@ -122,8 +159,11 @@ const changeGameButton =
   document.querySelector('.change-game')
 
 function updateScore() {
-  stefaniaScoreElement.textContent = stefaniaScore
-  princeScoreElement.textContent = princeScore
+  stefaniaScoreElement.textContent =
+    stefaniaScore
+
+  princeScoreElement.textContent =
+    princeScore
 }
 
 function renderBoard() {
@@ -139,12 +179,14 @@ function renderBoard() {
 
       if (board[row][column] === 1) {
         cell.classList.add('player-one')
+
         cell.style.backgroundImage =
           "url('/Stefania.png')"
       }
 
       if (board[row][column] === 2) {
         cell.classList.add('player-two')
+
         cell.style.backgroundImage =
           `url('/${opponentImage || 'Prince.png'}')`
       }
@@ -216,8 +258,11 @@ function countPieces(
 ) {
   let count = 0
 
-  let nextRow = row + rowDirection
-  let nextColumn = column + columnDirection
+  let nextRow =
+    row + rowDirection
+
+  let nextColumn =
+    column + columnDirection
 
   while (
     nextRow >= 0 &&
@@ -237,10 +282,14 @@ function countPieces(
 
 function createConfetti() {
   for (let i = 0; i < 80; i++) {
-    const piece = document.createElement('div')
+    const piece =
+      document.createElement('div')
 
     piece.className = 'confetti'
-    piece.style.left = `${Math.random() * 100}vw`
+
+    piece.style.left =
+      `${Math.random() * 100}vw`
+
     piece.style.animationDelay =
       `${Math.random() * 0.5}s`
 
@@ -374,27 +423,30 @@ async function enableNotifications() {
     const subscriptionJson =
       subscription.toJSON()
 
-    const { data: savedSubscription, error } =
-      await supabase
-        .from('push_subscriptions')
-        .upsert(
-          {
-            player: myPlayer,
-            game_id: selectedGameId,
-            endpoint: subscription.endpoint,
-            p256dh:
-              subscriptionJson.keys.p256dh,
-            auth:
-              subscriptionJson.keys.auth,
-            updated_at:
-              new Date().toISOString()
-          },
-          {
-            onConflict: 'endpoint'
-          }
-        )
-        .select()
-        .single()
+    const {
+      data: savedSubscription,
+      error
+    } = await supabase
+      .from('push_subscriptions')
+      .upsert(
+        {
+          player: myPlayer,
+          game_id: selectedGameId,
+          endpoint:
+            subscription.endpoint,
+          p256dh:
+            subscriptionJson.keys.p256dh,
+          auth:
+            subscriptionJson.keys.auth,
+          updated_at:
+            new Date().toISOString()
+        },
+        {
+          onConflict: 'endpoint'
+        }
+      )
+      .select()
+      .single()
 
     if (error) {
       console.error(
@@ -516,6 +568,7 @@ async function sendBuzz() {
     myPlayer === 1 ? 2 : 1
 
   buzzButton.disabled = true
+
   buzzButton.textContent =
     '👊 BUZZ SENT!'
 
@@ -537,6 +590,7 @@ async function sendBuzz() {
     )
 
     buzzButton.disabled = false
+
     buzzButton.textContent =
       '👊 SEND A BUZZ'
 
@@ -549,6 +603,7 @@ async function sendBuzz() {
 
   setTimeout(() => {
     buzzButton.disabled = false
+
     buzzButton.textContent =
       '👊 SEND A BUZZ'
   }, 1500)
@@ -678,6 +733,7 @@ async function loadGame() {
   }
 
   board = data.board
+
   currentPlayer =
     data.current_player
 
@@ -694,7 +750,7 @@ async function loadGame() {
     data.opponent_name ||
     (
       selectedGameId === 2
-        ? 'Matteo'
+        ? 'Olga'
         : 'Prince'
     )
 
@@ -702,7 +758,7 @@ async function loadGame() {
     data.opponent_image ||
     (
       selectedGameId === 2
-        ? 'Matteo.png'
+        ? 'Olga.png'
         : 'Prince.png'
     )
 
@@ -744,6 +800,7 @@ function subscribeToGame() {
         }
 
         board = game.board
+
         currentPlayer =
           game.current_player
 
@@ -760,7 +817,7 @@ function subscribeToGame() {
           game.opponent_name ||
           (
             selectedGameId === 2
-              ? 'Matteo'
+              ? 'Olga'
               : 'Prince'
           )
 
@@ -768,7 +825,7 @@ function subscribeToGame() {
           game.opponent_image ||
           (
             selectedGameId === 2
-              ? 'Matteo.png'
+              ? 'Olga.png'
               : 'Prince.png'
           )
 
