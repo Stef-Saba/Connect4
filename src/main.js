@@ -21,13 +21,24 @@ let selectedGameId =
 let opponentName = null
 let opponentImage = null
 
-let myPlayer = Number(
-  localStorage.getItem('connect4-player')
-)
+let myPlayer =
+  Number(localStorage.getItem('connect4-player'))
+
+let myPerson =
+  localStorage.getItem('connect4-person')
 
 if (myPlayer !== 1 && myPlayer !== 2) {
   myPlayer = null
   localStorage.removeItem('connect4-player')
+}
+
+if (
+  myPerson !== 'Stefania' &&
+  myPerson !== 'Prince' &&
+  myPerson !== 'Olga'
+) {
+  myPerson = null
+  localStorage.removeItem('connect4-person')
 }
 
 document.querySelector('#app').innerHTML = `
@@ -35,31 +46,29 @@ document.querySelector('#app').innerHTML = `
 
   <h1>Connect Four</h1>
 
-  <div class="player-selection" ${myPlayer ? 'hidden' : ''}>
+  <div class="player-selection" ${myPerson ? 'hidden' : ''}>
 
     <h2>Who are you?</h2>
 
-    <button class="player-choice" data-player="1">
+    <button class="player-choice" data-person="Stefania">
       👩 Stefania
     </button>
 
-    <button class="player-choice" data-player="2">
+    <button class="player-choice" data-person="Prince">
       👑 Prince
+    </button>
+
+    <button class="player-choice" data-person="Olga">
+      👩 Olga
     </button>
 
   </div>
 
-  <div class="game-selection" ${myPlayer ? '' : 'hidden'}>
+  <div class="game-selection" ${myPerson ? '' : 'hidden'}>
 
     <h2>Who do you want to play?</h2>
 
-    <button class="game-choice" data-game="1">
-      👑 Prince
-    </button>
-
-    <button class="game-choice" data-game="2">
-      👩 Olga
-    </button>
+    <div class="game-choice-container"></div>
 
   </div>
 
@@ -73,7 +82,7 @@ document.querySelector('#app').innerHTML = `
       </div>
 
       <div>
-        Prince:
+        <span id="opponent-score-name">Prince</span>:
         <strong id="prince-score">0</strong>
       </div>
 
@@ -128,6 +137,9 @@ const stefaniaScoreElement =
 const princeScoreElement =
   document.querySelector('#prince-score')
 
+const opponentScoreNameElement =
+  document.querySelector('#opponent-score-name')
+
 const newGameButton =
   document.querySelector('.new-game')
 
@@ -137,14 +149,14 @@ const playerSelection =
 const gameSelection =
   document.querySelector('.game-selection')
 
+const gameChoiceContainer =
+  document.querySelector('.game-choice-container')
+
 const gameArea =
   document.querySelector('.game-area')
 
 const playerChoiceButtons =
   document.querySelectorAll('.player-choice')
-
-const gameChoiceButtons =
-  document.querySelectorAll('.game-choice')
 
 const notificationButton =
   document.querySelector('.notification-button')
@@ -164,6 +176,9 @@ function updateScore() {
 
   princeScoreElement.textContent =
     princeScore
+
+  opponentScoreNameElement.textContent =
+    opponentName || 'Prince'
 }
 
 function renderBoard() {
@@ -859,17 +874,92 @@ function subscribeToGame() {
     })
 }
 
-function choosePlayer(player) {
-  myPlayer = player
+function renderGameChoices() {
+  gameChoiceContainer.innerHTML = ''
+
+  if (myPerson === 'Stefania') {
+    addGameChoice(
+      1,
+      '👑 Prince'
+    )
+
+    addGameChoice(
+      2,
+      '👩 Olga'
+    )
+
+    return
+  }
+
+  if (myPerson === 'Prince') {
+    addGameChoice(
+      1,
+      '👩 Stefania'
+    )
+
+    return
+  }
+
+  if (myPerson === 'Olga') {
+    addGameChoice(
+      2,
+      '👩 Stefania'
+    )
+  }
+}
+
+function addGameChoice(
+  gameId,
+  label
+) {
+  const button =
+    document.createElement('button')
+
+  button.className =
+    'game-choice'
+
+  button.dataset.game =
+    gameId
+
+  button.textContent =
+    label
+
+  button.addEventListener(
+    'click',
+    () => {
+      chooseGame(gameId)
+    }
+  )
+
+  gameChoiceContainer.appendChild(
+    button
+  )
+}
+
+function choosePlayer(person) {
+  myPerson = person
+
+  localStorage.setItem(
+    'connect4-person',
+    person
+  )
+
+  if (person === 'Stefania') {
+    myPlayer = 1
+  } else {
+    myPlayer = 2
+  }
 
   localStorage.setItem(
     'connect4-player',
-    player
+    myPlayer
   )
 
   playerSelection.hidden = true
   gameSelection.hidden = false
   gameArea.hidden = true
+
+  renderGameChoices()
 }
 
 function chooseGame(gameId) {
@@ -895,10 +985,15 @@ function changePlayer() {
   )
 
   localStorage.removeItem(
+    'connect4-person'
+  )
+
+  localStorage.removeItem(
     'connect4-game'
   )
 
   myPlayer = null
+  myPerson = null
   selectedGameId = null
 
   playerSelection.hidden = false
@@ -921,6 +1016,8 @@ function changeGame() {
 
   notificationButton.textContent =
     '🔔 Notifications'
+
+  renderGameChoices()
 }
 
 playerChoiceButtons.forEach(
@@ -929,20 +1026,7 @@ playerChoiceButtons.forEach(
       'click',
       () => {
         choosePlayer(
-          Number(button.dataset.player)
-        )
-      }
-    )
-  }
-)
-
-gameChoiceButtons.forEach(
-  (button) => {
-    button.addEventListener(
-      'click',
-      () => {
-        chooseGame(
-          Number(button.dataset.game)
+          button.dataset.person
         )
       }
     )
@@ -974,16 +1058,18 @@ newGameButton.addEventListener(
   startNewGame
 )
 
-if (myPlayer && selectedGameId) {
+if (myPerson && selectedGameId) {
   playerSelection.hidden = true
   gameSelection.hidden = true
   gameArea.hidden = false
 
   loadGame()
-} else if (myPlayer) {
+} else if (myPerson) {
   playerSelection.hidden = true
   gameSelection.hidden = false
   gameArea.hidden = true
+
+  renderGameChoices()
 }
 
 subscribeToGame()
