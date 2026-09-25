@@ -4,6 +4,7 @@ import { supabase } from './lib/supabaseClient'
 
 const ROWS = 6
 const COLUMNS = 7
+const POLL_INTERVAL = 3000
 
 let board = Array.from({ length: ROWS }, () =>
   Array(COLUMNS).fill(null)
@@ -29,6 +30,9 @@ let myPerson =
 
 let realtimeChannel = null
 let realtimeReconnectTimer = null
+let pollTimer = null
+let lastKnownUpdatedAt = null
+let loadingGame = false
 
 if (myPlayer !== 1 && myPlayer !== 2) {
   myPlayer = null
@@ -360,6 +364,9 @@ async function saveGame() {
     return
   }
 
+  const updatedAt =
+    new Date().toISOString()
+
   const { error } = await supabase
     .from('games')
     .update({
@@ -368,7 +375,7 @@ async function saveGame() {
       stefania_score: stefaniaScore,
       prince_score: princeScore,
       game_over: gameOver,
-      updated_at: new Date().toISOString()
+      updated_at: updatedAt
     })
     .eq('id', selectedGameId)
 
@@ -377,7 +384,11 @@ async function saveGame() {
       'Error saving game:',
       error
     )
+
+    return
   }
+
+  lastKnownUpdatedAt = updatedAt
 }
 
 function urlBase64ToUint8Array(base64String) {
@@ -410,6 +421,7 @@ async function enableNotifications() {
     alert(
       'DEBUG: serviceWorker is not supported.'
     )
+
     return
   }
 
@@ -417,6 +429,7 @@ async function enableNotifications() {
     alert(
       'DEBUG: Notification API is not supported.'
     )
+
     return
   }
 
@@ -428,6 +441,7 @@ async function enableNotifications() {
       'Notification permission:',
       permission
     )
+
     return
   }
 
@@ -439,6 +453,7 @@ async function enableNotifications() {
       alert(
         'Push notifications are not available for this app.'
       )
+
       return
     }
 
@@ -759,24 +774,15 @@ async function startNewGame() {
   await saveGame()
 }
 
-async function loadGame() {
-  if (!selectedGameId) {
+function applyGameData(data) {
+  if (!data) {
     return
   }
 
-  const { data, error } =
-    await supabase
-      .from('games')
-      .select('*')
-      .eq('id', selectedGameId)
-      .single()
-
-  if (error) {
-    console.error(
-      'Error loading game:',
-      error
-    )
-
+  if (
+    selectedGameId &&
+    data.id !== selectedGameId
+  ) {
     return
   }
 
@@ -810,58 +816,8 @@ async function loadGame() {
         : 'Prince.png'
     )
 
-  updateScore()
-  renderBoard()
-
-  if (gameOver) {
-    turnElement.textContent =
-      `🎉 ${getPlayerName(currentPlayer)} wins!`
-
-    newGameButton.hidden = false
-  } else {
-    updateTurnText()
-    newGameButton.hidden = true
-  }
-}
-
-function applyRealtimeGame(game) {
-  if (!game) {
-    return
-  }
-
-  if (game.id !== selectedGameId) {
-    return
-  }
-
-  board = game.board
-
-  currentPlayer =
-    game.current_player
-
-  stefaniaScore =
-    game.stefania_score
-
-  princeScore =
-    game.prince_score
-
-  gameOver =
-    game.game_over
-
-  opponentName =
-    game.opponent_name ||
-    (
-      selectedGameId === 2
-        ? 'Olga'
-        : 'Prince'
-    )
-
-  opponentImage =
-    game.opponent_image ||
-    (
-      selectedGameId === 2
-        ? 'Olga.png'
-        : 'Prince.png'
-    )
+  lastKnownUpdatedAt =
+    data.updated_at
 
   newPiece = null
 
@@ -876,6 +832,94 @@ function applyRealtimeGame(game) {
   } else {
     updateTurnText()
     newGameButton.hidden = true
+  }
+}
+
+async function loadGame() {
+  if (!selectedGameId) {
+    return
+  }
+
+  if (loadingGame) {
+    return
+  }
+
+  loadingGame = true
+
+  try {
+    const { data, error } =
+      await supabase
+        .from('games')
+        .select('*')
+        .eq('id', selectedGameId)
+        .single()
+
+    if (error) {
+      console.error(
+        'Error loading game:',
+        error
+      )
+
+      return
+    }
+
+    applyGameData(data)
+  } finally {
+    loadingGame = false
+  }
+}
+
+async function checkForGameUpdate() {
+  if (!selectedGameId) {
+    return
+  }
+
+  if (
+    document.visibilityState !== 'visible'
+  ) {
+    return
+  }
+
+  const { data, error } =
+    await supabase
+      .from('games')
+      .select(
+        'id, board, current_player, stefania_score, prince_score, game_over, updated_at, opponent_name, opponent_image'
+      )
+      .eq('id', selectedGameId)
+      .single()
+
+  if (error) {
+    console.error(
+      'Polling game update failed:',
+      error
+    )
+
+    return
+  }
+
+  if (
+    data.updated_at !==
+    lastKnownUpdatedAt
+  ) {
+    applyGameData(data)
+  }
+}
+
+function startPolling() {
+  stopPolling()
+
+  pollTimer =
+    setInterval(
+      checkForGameUpdate,
+      POLL_INTERVAL
+    )
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
   }
 }
 
@@ -896,7 +940,10 @@ function scheduleRealtimeReconnect() {
 
 function subscribeToGame() {
   if (realtimeReconnectTimer) {
-    clearTimeout(realtimeReconnectTimer)
+    clearTimeout(
+      realtimeReconnectTimer
+    )
+
     realtimeReconnectTimer = null
   }
 
@@ -922,7 +969,7 @@ function subscribeToGame() {
           table: 'games'
         },
         (payload) => {
-          applyRealtimeGame(
+          applyGameData(
             payload.new
           )
         }
@@ -1047,6 +1094,7 @@ function chooseGame(gameId) {
 
   subscribeToGame()
   loadGame()
+  startPolling()
 }
 
 function changePlayer() {
@@ -1065,6 +1113,8 @@ function changePlayer() {
   myPlayer = null
   myPerson = null
   selectedGameId = null
+
+  stopPolling()
 
   playerSelection.hidden = false
   gameSelection.hidden = true
@@ -1088,6 +1138,8 @@ function changeGame() {
   )
 
   selectedGameId = null
+
+  stopPolling()
 
   gameSelection.hidden = false
   gameArea.hidden = true
@@ -1154,7 +1206,10 @@ document.addEventListener(
       if (selectedGameId) {
         subscribeToGame()
         loadGame()
+        startPolling()
       }
+    } else {
+      stopPolling()
     }
   }
 )
@@ -1165,6 +1220,7 @@ window.addEventListener(
     if (selectedGameId) {
       subscribeToGame()
       loadGame()
+      startPolling()
     }
   }
 )
@@ -1175,6 +1231,7 @@ if (myPerson && selectedGameId) {
   gameArea.hidden = false
 
   loadGame()
+  startPolling()
 } else if (myPerson) {
   playerSelection.hidden = true
   gameSelection.hidden = false
@@ -1184,3 +1241,7 @@ if (myPerson && selectedGameId) {
 }
 
 subscribeToGame()
+
+if (selectedGameId) {
+  startPolling()
+}
