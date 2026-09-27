@@ -15,6 +15,7 @@ let newPiece = null
 let gameOver = false
 let stefaniaScore = 0
 let princeScore = 0
+let rematchRequestedBy = null
 
 let selectedGameId =
   Number(localStorage.getItem('connect4-game')) || null
@@ -391,6 +392,123 @@ async function saveGame() {
   lastKnownUpdatedAt = updatedAt
 }
 
+async function requestRematch() {
+  if (!selectedGameId) {
+    return
+  }
+
+  if (!gameOver) {
+    return
+  }
+
+  if (currentPlayer !== myPlayer) {
+    return
+  }
+
+  if (rematchRequestedBy) {
+    return
+  }
+
+  const updatedAt =
+    new Date().toISOString()
+
+  const { error } = await supabase
+    .from('games')
+    .update({
+      rematch_requested_by: myPlayer,
+      updated_at: updatedAt
+    })
+    .eq('id', selectedGameId)
+
+  if (error) {
+    console.error(
+      'Error requesting rematch:',
+      error
+    )
+
+    alert(
+      'Could not request a new game.'
+    )
+
+    return
+  }
+
+  rematchRequestedBy = myPlayer
+  lastKnownUpdatedAt = updatedAt
+
+  turnElement.textContent =
+    `Waiting for ${getPlayerName(
+      myPlayer === 1 ? 2 : 1
+    )}...`
+
+  newGameButton.hidden = true
+}
+
+async function acceptRematch() {
+  if (!selectedGameId) {
+    return
+  }
+
+  if (!gameOver) {
+    return
+  }
+
+  if (!rematchRequestedBy) {
+    return
+  }
+
+  if (rematchRequestedBy === myPlayer) {
+    return
+  }
+
+  const emptyBoard =
+    Array.from(
+      { length: ROWS },
+      () => Array(COLUMNS).fill(null)
+    )
+
+  const updatedAt =
+    new Date().toISOString()
+
+  const { error } = await supabase
+    .from('games')
+    .update({
+      board: emptyBoard,
+      current_player: 1,
+      game_over: false,
+      rematch_requested_by: null,
+      last_reminder_at: null,
+      reminder_player: null,
+      updated_at: updatedAt
+    })
+    .eq('id', selectedGameId)
+
+  if (error) {
+    console.error(
+      'Error accepting rematch:',
+      error
+    )
+
+    alert(
+      'Could not start the new game.'
+    )
+
+    return
+  }
+
+  board = emptyBoard
+  currentPlayer = 1
+  gameOver = false
+  newPiece = null
+  rematchRequestedBy = null
+  lastKnownUpdatedAt = updatedAt
+
+  updateTurnText()
+  renderBoard()
+
+  newGameButton.hidden = true
+}
+
 function urlBase64ToUint8Array(base64String) {
   const padding =
     '='.repeat(
@@ -721,7 +839,7 @@ async function makeMove(column) {
 
         createConfetti()
 
-        newGameButton.hidden = false
+        newGameButton.hidden = true
 
         newPiece = null
 
@@ -754,24 +872,51 @@ async function makeMove(column) {
   }
 }
 
-async function startNewGame() {
-  board =
-    Array.from(
-      { length: ROWS },
-      () => Array(COLUMNS).fill(null)
-    )
+function updateGameOverUI() {
+  if (!gameOver) {
+    updateTurnText()
+    newGameButton.hidden = true
+    newGameButton.textContent = 'Start New'
+    return
+  }
 
-  currentPlayer = 1
-  gameOver = false
-  newPiece = null
+  const winnerName =
+    getPlayerName(currentPlayer)
 
-  updateTurnText()
+  if (!rematchRequestedBy) {
+    turnElement.textContent =
+      `🎉 ${winnerName} wins!`
 
-  newGameButton.hidden = true
+    if (currentPlayer === myPlayer) {
+      newGameButton.textContent =
+        'Start New'
 
-  renderBoard()
+      newGameButton.hidden = false
+    } else {
+      newGameButton.hidden = true
+    }
 
-  await saveGame()
+    return
+  }
+
+  if (rematchRequestedBy === myPlayer) {
+    turnElement.textContent =
+      `Waiting for ${getPlayerName(
+        myPlayer === 1 ? 2 : 1
+      )}...`
+
+    newGameButton.hidden = true
+
+    return
+  }
+
+  turnElement.textContent =
+    `${getPlayerName(rematchRequestedBy)} wants to play again!`
+
+  newGameButton.textContent =
+    'PLAY AGAIN'
+
+  newGameButton.hidden = false
 }
 
 function applyGameData(data) {
@@ -786,6 +931,9 @@ function applyGameData(data) {
     return
   }
 
+  const wasGameOver =
+    gameOver
+
   board = data.board
 
   currentPlayer =
@@ -799,6 +947,16 @@ function applyGameData(data) {
 
   gameOver =
     data.game_over
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      data,
+      'rematch_requested_by'
+    )
+  ) {
+    rematchRequestedBy =
+      data.rematch_requested_by
+  }
 
   opponentName =
     data.opponent_name ||
@@ -824,15 +982,14 @@ function applyGameData(data) {
   updateScore()
   renderBoard()
 
-  if (gameOver) {
-    turnElement.textContent =
-      `🎉 ${getPlayerName(currentPlayer)} wins!`
-
-    newGameButton.hidden = false
-  } else {
-    updateTurnText()
-    newGameButton.hidden = true
+  if (
+    gameOver &&
+    !wasGameOver
+  ) {
+    createConfetti()
   }
+
+  updateGameOverUI()
 }
 
 async function loadGame() {
@@ -863,7 +1020,17 @@ async function loadGame() {
       return
     }
 
+    const wasGameOver =
+      gameOver
+
     applyGameData(data)
+
+    if (
+      data.game_over &&
+      !wasGameOver
+    ) {
+      createConfetti()
+    }
   } finally {
     loadingGame = false
   }
@@ -884,7 +1051,7 @@ async function checkForGameUpdate() {
     await supabase
       .from('games')
       .select(
-        'id, board, current_player, stefania_score, prince_score, game_over, updated_at, opponent_name, opponent_image'
+        'id, board, current_player, stefania_score, prince_score, game_over, updated_at, opponent_name, opponent_image, rematch_requested_by'
       )
       .eq('id', selectedGameId)
       .single()
@@ -1193,7 +1360,17 @@ changeGameButton.addEventListener(
 
 newGameButton.addEventListener(
   'click',
-  startNewGame
+  () => {
+    if (
+      gameOver &&
+      rematchRequestedBy &&
+      rematchRequestedBy !== myPlayer
+    ) {
+      acceptRematch()
+    } else {
+      requestRematch()
+    }
+  }
 )
 
 document.addEventListener(
