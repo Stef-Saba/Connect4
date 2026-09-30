@@ -15,6 +15,7 @@ let newPiece = null
 let gameOver = false
 let stefaniaScore = 0
 let princeScore = 0
+let drawScore = 0
 let rematchRequestedBy = null
 
 let selectedGameId =
@@ -95,6 +96,11 @@ document.querySelector('#app').innerHTML = `
         <strong id="opponent-score">0</strong>
       </div>
 
+      <div>
+        Draws:
+        <strong id="draw-score">0</strong>
+      </div>
+
     </div>
 
     <p class="turn">Stefania's turn</p>
@@ -151,6 +157,9 @@ const opponentScoreNameElement =
 
 const opponentScoreElement =
   document.querySelector('#opponent-score')
+
+const drawScoreElement =
+  document.querySelector('#draw-score')
 
 const newGameButton =
   document.querySelector('.new-game')
@@ -219,6 +228,9 @@ function updateScore() {
 
   opponentScoreElement.textContent =
     opponentScore
+
+  drawScoreElement.textContent =
+    drawScore
 }
 
 function updateTurnText() {
@@ -339,6 +351,42 @@ function countPieces(
   return count
 }
 
+function isBoardFull() {
+  return board.every(
+    (row) =>
+      row.every(
+        (cell) => cell !== null
+      )
+  )
+}
+
+function boardHasWinner() {
+  for (let row = 0; row < ROWS; row++) {
+    for (
+      let column = 0;
+      column < COLUMNS;
+      column++
+    ) {
+      if (
+        board[row][column] !== null &&
+        checkWinner(row, column)
+      ) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+function isDrawGame() {
+  return (
+    gameOver &&
+    isBoardFull() &&
+    !boardHasWinner()
+  )
+}
+
 function createConfetti() {
   for (let i = 0; i < 80; i++) {
     const piece =
@@ -375,6 +423,7 @@ async function saveGame() {
       current_player: currentPlayer,
       stefania_score: stefaniaScore,
       prince_score: princeScore,
+      draw_score: drawScore,
       game_over: gameOver,
       updated_at: updatedAt
     })
@@ -401,7 +450,10 @@ async function requestRematch() {
     return
   }
 
-  if (currentPlayer !== myPlayer) {
+  if (
+    !isDrawGame() &&
+    currentPlayer !== myPlayer
+  ) {
     return
   }
 
@@ -849,6 +901,28 @@ async function makeMove(column) {
           playerWhoMoved
         )
 
+        updateGameOverUI()
+
+        return
+      }
+
+      if (isBoardFull()) {
+        gameOver = true
+        drawScore++
+
+        updateScore()
+
+        turnElement.textContent =
+          `🤝 IT'S A DRAW!`
+
+        newGameButton.hidden = true
+
+        newPiece = null
+
+        await saveGame()
+
+        updateGameOverUI()
+
         return
       }
 
@@ -880,10 +954,25 @@ function updateGameOverUI() {
     return
   }
 
-  const winnerName =
-    getPlayerName(currentPlayer)
+  const draw =
+    isDrawGame()
 
   if (!rematchRequestedBy) {
+    if (draw) {
+      turnElement.textContent =
+        `🤝 IT'S A DRAW!`
+
+      newGameButton.textContent =
+        'Start New'
+
+      newGameButton.hidden = false
+
+      return
+    }
+
+    const winnerName =
+      getPlayerName(currentPlayer)
+
     turnElement.textContent =
       `🎉 ${winnerName} wins!`
 
@@ -945,6 +1034,16 @@ function applyGameData(data) {
   princeScore =
     data.prince_score
 
+  if (
+    Object.prototype.hasOwnProperty.call(
+      data,
+      'draw_score'
+    )
+  ) {
+    drawScore =
+      data.draw_score ?? 0
+  }
+
   gameOver =
     data.game_over
 
@@ -984,7 +1083,8 @@ function applyGameData(data) {
 
   if (
     gameOver &&
-    !wasGameOver
+    !wasGameOver &&
+    !isDrawGame()
   ) {
     createConfetti()
   }
@@ -1020,17 +1120,7 @@ async function loadGame() {
       return
     }
 
-    const wasGameOver =
-      gameOver
-
     applyGameData(data)
-
-    if (
-      data.game_over &&
-      !wasGameOver
-    ) {
-      createConfetti()
-    }
   } finally {
     loadingGame = false
   }
@@ -1051,7 +1141,7 @@ async function checkForGameUpdate() {
     await supabase
       .from('games')
       .select(
-        'id, board, current_player, stefania_score, prince_score, game_over, updated_at, opponent_name, opponent_image, rematch_requested_by'
+        'id, board, current_player, stefania_score, prince_score, draw_score, game_over, updated_at, opponent_name, opponent_image, rematch_requested_by'
       )
       .eq('id', selectedGameId)
       .single()
@@ -1066,8 +1156,9 @@ async function checkForGameUpdate() {
   }
 
   if (
-    data.updated_at !==
-    lastKnownUpdatedAt
+    data.updated_at !== lastKnownUpdatedAt ||
+    data.rematch_requested_by !== rematchRequestedBy ||
+    data.draw_score !== drawScore
   ) {
     applyGameData(data)
   }
