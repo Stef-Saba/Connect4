@@ -506,7 +506,7 @@ async function acceptRematch() {
     return
   }
 
-  // The person who clicked START NEW first starts the next game.
+  // Whoever requested the rematch first starts the next game.
   const startingPlayer =
     rematchRequestedBy
 
@@ -948,7 +948,8 @@ function updateGameOverUI() {
     updateTurnText()
 
     newGameButton.hidden = true
-    newGameButton.textContent = 'Start New'
+    newGameButton.textContent =
+      'START NEW'
 
     return
   }
@@ -956,6 +957,9 @@ function updateGameOverUI() {
   const draw =
     isDrawGame()
 
+  /*
+    No one has requested a rematch yet.
+  */
   if (!rematchRequestedBy) {
     if (draw) {
       turnElement.textContent =
@@ -969,18 +973,21 @@ function updateGameOverUI() {
       return
     }
 
+    const winnerPlayer =
+      currentPlayer
+
     const winnerName =
-      getPlayerName(currentPlayer)
+      getPlayerName(winnerPlayer)
 
     turnElement.textContent =
       `🎉 ${winnerName} wins!`
 
-    if (currentPlayer === myPlayer) {
+    if (winnerPlayer === myPlayer) {
       newGameButton.textContent =
         'START NEW'
     } else {
       newGameButton.textContent =
-        'PLAY AGAIN'
+        'REMATCH'
     }
 
     newGameButton.hidden = false
@@ -988,26 +995,38 @@ function updateGameOverUI() {
     return
   }
 
+  /*
+    I requested the rematch first.
+    I must wait for the other player.
+  */
   if (rematchRequestedBy === myPlayer) {
+    const otherPlayer =
+      myPlayer === 1 ? 2 : 1
+
     turnElement.textContent =
-      `Waiting for ${getPlayerName(
-        myPlayer === 1 ? 2 : 1
-      )}...`
+      `Waiting for ${getPlayerName(otherPlayer)}...`
 
     newGameButton.hidden = true
 
     return
   }
 
+  /*
+    The other player requested first.
+    I can accept and start the new game.
+  */
+  const requesterName =
+    getPlayerName(rematchRequestedBy)
+
   turnElement.textContent =
-    `${getPlayerName(rematchRequestedBy)} wants to play again!`
+    `${requesterName} wants to play again!`
 
   if (draw) {
     newGameButton.textContent =
       'START NEW'
   } else {
     newGameButton.textContent =
-      'PLAY AGAIN'
+      'REMATCH'
   }
 
   newGameButton.hidden = false
