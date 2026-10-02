@@ -506,6 +506,10 @@ async function acceptRematch() {
     return
   }
 
+  // The person who clicked START NEW first starts the next game.
+  const startingPlayer =
+    rematchRequestedBy
+
   const emptyBoard =
     Array.from(
       { length: ROWS },
@@ -519,7 +523,7 @@ async function acceptRematch() {
     .from('games')
     .update({
       board: emptyBoard,
-      current_player: 1,
+      current_player: startingPlayer,
       game_over: false,
       rematch_requested_by: null,
       last_reminder_at: null,
@@ -542,7 +546,7 @@ async function acceptRematch() {
   }
 
   board = emptyBoard
-  currentPlayer = 1
+  currentPlayer = startingPlayer
   gameOver = false
   newPiece = null
   rematchRequestedBy = null
