@@ -450,13 +450,6 @@ async function requestRematch() {
     return
   }
 
-  if (
-    !isDrawGame() &&
-    currentPlayer !== myPlayer
-  ) {
-    return
-  }
-
   if (rematchRequestedBy) {
     return
   }
@@ -949,8 +942,10 @@ async function makeMove(column) {
 function updateGameOverUI() {
   if (!gameOver) {
     updateTurnText()
+
     newGameButton.hidden = true
     newGameButton.textContent = 'Start New'
+
     return
   }
 
@@ -963,7 +958,7 @@ function updateGameOverUI() {
         `🤝 IT'S A DRAW!`
 
       newGameButton.textContent =
-        'Start New'
+        'START NEW'
 
       newGameButton.hidden = false
 
@@ -978,12 +973,13 @@ function updateGameOverUI() {
 
     if (currentPlayer === myPlayer) {
       newGameButton.textContent =
-        'Start New'
-
-      newGameButton.hidden = false
+        'START NEW'
     } else {
-      newGameButton.hidden = true
+      newGameButton.textContent =
+        'PLAY AGAIN'
     }
+
+    newGameButton.hidden = false
 
     return
   }
@@ -1002,8 +998,13 @@ function updateGameOverUI() {
   turnElement.textContent =
     `${getPlayerName(rematchRequestedBy)} wants to play again!`
 
-  newGameButton.textContent =
-    'PLAY AGAIN'
+  if (draw) {
+    newGameButton.textContent =
+      'START NEW'
+  } else {
+    newGameButton.textContent =
+      'PLAY AGAIN'
+  }
 
   newGameButton.hidden = false
 }
