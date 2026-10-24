@@ -1,5 +1,4 @@
 import './style.css'
-
 import { supabase } from './lib/supabaseClient'
 
 const ROWS = 6
@@ -9,7 +8,6 @@ const POLL_INTERVAL = 3000
 let board = Array.from({ length: ROWS }, () =>
   Array(COLUMNS).fill(null)
 )
-
 let currentPlayer = 1
 let newPiece = null
 let gameOver = false
@@ -17,19 +15,14 @@ let stefaniaScore = 0
 let princeScore = 0
 let drawScore = 0
 let rematchRequestedBy = null
-
 let selectedGameId =
   Number(localStorage.getItem('connect4-game')) || null
-
 let opponentName = null
 let opponentImage = null
-
 let myPlayer =
   Number(localStorage.getItem('connect4-player'))
-
 let myPerson =
   localStorage.getItem('connect4-person')
-
 let realtimeChannel = null
 let realtimeReconnectTimer = null
 let pollTimer = null
@@ -51,68 +44,45 @@ if (
 }
 
 document.querySelector('#app').innerHTML = `
-
 <main class="game">
-
   <h1>Connect Four</h1>
-
   <div class="player-selection" ${myPerson ? 'hidden' : ''}>
-
     <h2>Who are you?</h2>
-
     <button class="player-choice" data-person="Stefania">
       👩 Stefania
     </button>
-
     <button class="player-choice" data-person="Prince">
       👑 Prince
     </button>
-
     <button class="player-choice" data-person="Olga">
       👩 Olga
     </button>
-
   </div>
-
   <div class="game-selection" ${myPerson ? '' : 'hidden'}>
-
     <h2>Who do you want to play?</h2>
-
     <div class="game-choice-container"></div>
-
   </div>
-
   <div class="game-area" hidden>
-
     <div class="score">
-
       <div>
         <span id="my-score-name">Stefania</span>:
         <strong id="my-score">0</strong>
       </div>
-
       <div>
         <span id="opponent-score-name">Prince</span>:
         <strong id="opponent-score">0</strong>
       </div>
-
       <div>
         Draws:
         <strong id="draw-score">0</strong>
       </div>
-
     </div>
-
     <p class="turn">Stefania's turn</p>
-
     <div class="board"></div>
-
     <div class="notification-settings">
-
       <button class="notification-button" type="button">
         🔔 Notifications
       </button>
-
       <button
         class="notification-button"
         type="button"
@@ -120,74 +90,52 @@ document.querySelector('#app').innerHTML = `
       >
         👊 SEND A BUZZ
       </button>
-
     </div>
-
     <button class="change-player" type="button">
       Change player
     </button>
-
     <button class="change-game" type="button">
       Change opponent
     </button>
-
     <button class="new-game" hidden>
       Start New
     </button>
-
   </div>
-
 </main>
 `
 
 const boardElement =
   document.querySelector('.board')
-
 const turnElement =
   document.querySelector('.turn')
-
 const myScoreNameElement =
   document.querySelector('#my-score-name')
-
 const myScoreElement =
   document.querySelector('#my-score')
-
 const opponentScoreNameElement =
   document.querySelector('#opponent-score-name')
-
 const opponentScoreElement =
   document.querySelector('#opponent-score')
-
 const drawScoreElement =
   document.querySelector('#draw-score')
-
 const newGameButton =
   document.querySelector('.new-game')
-
 const playerSelection =
   document.querySelector('.player-selection')
-
 const gameSelection =
   document.querySelector('.game-selection')
-
 const gameChoiceContainer =
   document.querySelector('.game-choice-container')
-
 const gameArea =
   document.querySelector('.game-area')
-
 const playerChoiceButtons =
   document.querySelectorAll('.player-choice')
-
 const notificationButton =
   document.querySelector('.notification-button')
-
 const buzzButton =
   document.querySelector('#buzz-button')
-
 const changePlayerButton =
   document.querySelector('.change-player')
-
 const changeGameButton =
   document.querySelector('.change-game')
 
@@ -195,7 +143,6 @@ function getPlayerName(player) {
   if (player === 1) {
     return 'Stefania'
   }
-
   return opponentName || 'Prince'
 }
 
@@ -203,32 +150,25 @@ function getPlayerScore(player) {
   if (player === 1) {
     return stefaniaScore
   }
-
   return princeScore
 }
 
 function updateScore() {
   const myScore =
     getPlayerScore(myPlayer)
-
   const opponentPlayer =
     myPlayer === 1 ? 2 : 1
-
   const opponentScore =
     getPlayerScore(opponentPlayer)
 
   myScoreNameElement.textContent =
     getPlayerName(myPlayer)
-
   myScoreElement.textContent =
     myScore
-
   opponentScoreNameElement.textContent =
     getPlayerName(opponentPlayer)
-
   opponentScoreElement.textContent =
     opponentScore
-
   drawScoreElement.textContent =
     drawScore
 }
@@ -282,7 +222,6 @@ function renderBoard() {
 
 function checkWinner(row, column) {
   const player = board[row][column]
-
   const directions = [
     [0, 1],
     [1, 0],
@@ -328,10 +267,8 @@ function countPieces(
   player
 ) {
   let count = 0
-
   let nextRow =
     row + rowDirection
-
   let nextColumn =
     column + columnDirection
 
@@ -343,7 +280,6 @@ function countPieces(
     board[nextRow][nextColumn] === player
   ) {
     count++
-
     nextRow += rowDirection
     nextColumn += columnDirection
   }
@@ -393,10 +329,8 @@ function createConfetti() {
       document.createElement('div')
 
     piece.className = 'confetti'
-
     piece.style.left =
       `${Math.random() * 100}vw`
-
     piece.style.animationDelay =
       `${Math.random() * 0.5}s`
 
@@ -434,7 +368,6 @@ async function saveGame() {
       'Error saving game:',
       error
     )
-
     return
   }
 
@@ -470,11 +403,9 @@ async function requestRematch() {
       'Error requesting rematch:',
       error
     )
-
     alert(
       'Could not request a new game.'
     )
-
     return
   }
 
@@ -506,9 +437,8 @@ async function acceptRematch() {
     return
   }
 
-  // Whoever requested the rematch first starts the next game.
-  const startingPlayer =
-    rematchRequestedBy
+  // Stefania (player 1) always starts the next game.
+  const startingPlayer = 1
 
   const emptyBoard =
     Array.from(
@@ -537,11 +467,9 @@ async function acceptRematch() {
       'Error accepting rematch:',
       error
     )
-
     alert(
       'Could not start the new game.'
     )
-
     return
   }
 
@@ -554,7 +482,6 @@ async function acceptRematch() {
 
   updateTurnText()
   renderBoard()
-
   newGameButton.hidden = true
 }
 
@@ -567,7 +494,7 @@ function urlBase64ToUint8Array(base64String) {
   const base64 =
     (base64String + padding)
       .replace(/-/g, '+')
-      .replace(/_/g, '/')
+      .replace(/\_/g, '/')
 
   const rawData =
     window.atob(base64)
@@ -588,7 +515,6 @@ async function enableNotifications() {
     alert(
       'DEBUG: serviceWorker is not supported.'
     )
-
     return
   }
 
@@ -596,7 +522,6 @@ async function enableNotifications() {
     alert(
       'DEBUG: Notification API is not supported.'
     )
-
     return
   }
 
@@ -608,7 +533,6 @@ async function enableNotifications() {
       'Notification permission:',
       permission
     )
-
     return
   }
 
@@ -620,7 +544,6 @@ async function enableNotifications() {
       alert(
         'Push notifications are not available for this app.'
       )
-
       return
     }
 
@@ -631,11 +554,9 @@ async function enableNotifications() {
       console.error(
         'VITE_VAPID_PUBLIC_KEY is missing'
       )
-
       alert(
         'Notification setup is incomplete.'
       )
-
       return
     }
 
@@ -689,11 +610,9 @@ async function enableNotifications() {
         'Error saving push subscription:',
         error
       )
-
       alert(
         'Could not save notification settings.'
       )
-
       return
     }
 
@@ -711,11 +630,9 @@ async function enableNotifications() {
         'Error linking notification to game:',
         linkError
       )
-
       alert(
         'Could not link notifications to this game.'
       )
-
       return
     }
 
@@ -731,7 +648,6 @@ async function enableNotifications() {
       'Notification setup failed:',
       error
     )
-
     alert(
       `Notification setup failed: ${error.message}`
     )
@@ -804,7 +720,6 @@ async function sendBuzz() {
     myPlayer === 1 ? 2 : 1
 
   buzzButton.disabled = true
-
   buzzButton.textContent =
     '👊 BUZZ SENT!'
 
@@ -824,16 +739,13 @@ async function sendBuzz() {
       'Error sending buzz:',
       error
     )
-
     buzzButton.disabled = false
-
     buzzButton.textContent =
       '👊 SEND A BUZZ'
 
     alert(
       'Could not send the buzz.'
     )
-
     return
   }
 
@@ -887,9 +799,7 @@ async function makeMove(column) {
           `🎉 ${getPlayerName(playerWhoMoved)} wins!`
 
         createConfetti()
-
         newGameButton.hidden = true
-
         newPiece = null
 
         await saveGame()
@@ -899,27 +809,22 @@ async function makeMove(column) {
         )
 
         updateGameOverUI()
-
         return
       }
 
       if (isBoardFull()) {
         gameOver = true
         drawScore++
-
         updateScore()
 
         turnElement.textContent =
           `🤝 IT'S A DRAW!`
 
         newGameButton.hidden = true
-
         newPiece = null
 
         await saveGame()
-
         updateGameOverUI()
-
         return
       }
 
@@ -929,7 +834,6 @@ async function makeMove(column) {
           : 1
 
       updateTurnText()
-
       newPiece = null
 
       await saveGame()
@@ -946,20 +850,16 @@ async function makeMove(column) {
 function updateGameOverUI() {
   if (!gameOver) {
     updateTurnText()
-
     newGameButton.hidden = true
     newGameButton.textContent =
       'START NEW'
-
     return
   }
 
   const draw =
     isDrawGame()
 
-  /*
-    No one has requested a rematch yet.
-  */
+  // No one has requested a rematch yet.
   if (!rematchRequestedBy) {
     if (draw) {
       turnElement.textContent =
@@ -967,9 +867,7 @@ function updateGameOverUI() {
 
       newGameButton.textContent =
         'START NEW'
-
       newGameButton.hidden = false
-
       return
     }
 
@@ -991,14 +889,10 @@ function updateGameOverUI() {
     }
 
     newGameButton.hidden = false
-
     return
   }
 
-  /*
-    I requested the rematch first.
-    I must wait for the other player.
-  */
+  // I requested the rematch first. I must wait for the other player.
   if (rematchRequestedBy === myPlayer) {
     const otherPlayer =
       myPlayer === 1 ? 2 : 1
@@ -1007,14 +901,10 @@ function updateGameOverUI() {
       `Waiting for ${getPlayerName(otherPlayer)}...`
 
     newGameButton.hidden = true
-
     return
   }
 
-  /*
-    The other player requested first.
-    I can accept and start the new game.
-  */
+  // The other player requested first. I can accept and start the new game.
   const requesterName =
     getPlayerName(rematchRequestedBy)
 
@@ -1048,13 +938,10 @@ function applyGameData(data) {
     gameOver
 
   board = data.board
-
   currentPlayer =
     data.current_player
-
   stefaniaScore =
     data.stefania_score
-
   princeScore =
     data.prince_score
 
@@ -1140,7 +1027,6 @@ async function loadGame() {
         'Error loading game:',
         error
       )
-
       return
     }
 
@@ -1175,7 +1061,6 @@ async function checkForGameUpdate() {
       'Polling game update failed:',
       error
     )
-
     return
   }
 
@@ -1225,7 +1110,6 @@ function subscribeToGame() {
     clearTimeout(
       realtimeReconnectTimer
     )
-
     realtimeReconnectTimer = null
   }
 
@@ -1233,7 +1117,6 @@ function subscribeToGame() {
     supabase.removeChannel(
       realtimeChannel
     )
-
     realtimeChannel = null
   }
 
@@ -1280,12 +1163,10 @@ function renderGameChoices() {
       1,
       '👑 Prince'
     )
-
     addGameChoice(
       2,
       '👩 Olga'
     )
-
     return
   }
 
@@ -1294,7 +1175,6 @@ function renderGameChoices() {
       1,
       '👩 Stefania'
     )
-
     return
   }
 
@@ -1315,10 +1195,8 @@ function addGameChoice(
 
   button.className =
     'game-choice'
-
   button.dataset.game =
     gameId
-
   button.textContent =
     label
 
@@ -1383,11 +1261,9 @@ function changePlayer() {
   localStorage.removeItem(
     'connect4-player'
   )
-
   localStorage.removeItem(
     'connect4-person'
   )
-
   localStorage.removeItem(
     'connect4-game'
   )
@@ -1409,7 +1285,6 @@ function changePlayer() {
     supabase.removeChannel(
       realtimeChannel
     )
-
     realtimeChannel = null
   }
 }
@@ -1433,7 +1308,6 @@ function changeGame() {
     supabase.removeChannel(
       realtimeChannel
     )
-
     realtimeChannel = null
   }
 
