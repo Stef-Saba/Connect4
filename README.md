@@ -4,6 +4,8 @@ A real-time multiplayer Connect Four application built with JavaScript, Vite and
 
 **[Play the live game](https://connect4-sooty.vercel.app)**
 
+> **Current availability:** The live version is currently designed for a small group of players. Visitors can join using one of two predefined player identities: Stefania or Olga. The application does not currently offer open player registration or public matchmaking.
+
 ## Overview
 
 Connect Four is a browser-based multiplayer game that allows two players to compete remotely in real time.
@@ -17,7 +19,7 @@ The project combines interactive frontend development with backend integration, 
 - **Game logic:** Handles alternating turns, valid moves, four-in-a-row detection and draw conditions.
 - **Score tracking:** Keeps track of players' results across games.
 - **Rematch system:** Players can request and accept rematches.
-- **Player selection:** Supports multiple selectable player identities.
+- **Predefined player identities:** The current live version supports two player identities, Stefania and Olga.
 - **In-game interaction:** Includes a buzz feature for notifying the other player.
 - **Browser notifications:** Provides notifications for relevant game events.
 - **Responsive interface:** Mobile-first layout designed for portrait phone screens as well as desktop.
